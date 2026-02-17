@@ -37,13 +37,11 @@
     </script>
 
     <style>
-        /* Estilos críticos para o Flip Card 3D */
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
         .backface-hidden { backface-visibility: hidden; }
         .rotate-y-180 { transform: rotateY(180deg); }
         
-        /* Scrollbar elegante */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -55,9 +53,7 @@
 <body>
     <div id="root"></div>
 
-    <!-- Adicionado data-type="module" para suportar imports do Firebase -->
     <script type="text/babel" data-type="module">
-        // --- IMPORTAÇÕES FIREBASE (Módulos ES) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { 
             getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
@@ -68,7 +64,6 @@
             setDoc, deleteDoc, updateDoc, serverTimestamp, query, where 
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // --- CONFIGURAÇÃO ---
         const firebaseConfig = {
             apiKey: "AIzaSyClIIJkYOmAvEKPtXvG-SIi9SzxQpaBN9s",
             authDomain: "ankidigital.firebaseapp.com",
@@ -82,38 +77,91 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- ALGORITMO SUPERMEMO 2 (SM-2) ---
-        // Este é o coração do Anki. Calcula o próximo intervalo baseado na qualidade da resposta.
-        const calculateSM2 = (quality, prevInterval, prevRepetitions, prevEF) => {
-            // Quality: 0-5 (0=Blackout, 5=Perfeito)
-            // Interval: Dias até a próxima revisão
-            // Repetitions: Quantas vezes acertou seguidas
-            // EF: Fator de Facilidade (Easiness Factor)
+        // --- ALGORITMO ANKI AVANÇADO (Minutos + Dias) ---
+        // Retorna o próximo intervalo e o novo estado do card
+        const calculateNextReview = (rating, currentData) => {
+            // rating: 1 (Again), 2 (Hard), 3 (Good), 4 (Easy)
+            
+            // Valores Padrão se for card novo
+            const interval = currentData?.interval || 0; // 0 significa card novo ou em aprendizado
+            const ease = currentData?.ease || 2.5;
+            const state = currentData?.state || 'learning'; // 'learning' ou 'graduated'
 
-            let interval, repetitions, ef;
+            let newInterval = 0; // Em minutos se < 1440 (1 dia), senão em dias
+            let newEase = ease;
+            let newState = state;
 
-            if (quality >= 3) {
-                if (prevRepetitions === 0) {
-                    interval = 1;
-                } else if (prevRepetitions === 1) {
-                    interval = 6;
-                } else {
-                    interval = Math.round(prevInterval * prevEF);
+            // --- FASE DE APRENDIZADO (Minutos) ---
+            if (state === 'learning') {
+                if (rating === 1) { // De novo (Again)
+                    newInterval = 5; // 5 minutos
+                    newState = 'learning';
+                } else if (rating === 2) { // Difícil (Hard)
+                    newInterval = 10; // 10 minutos
+                    newState = 'learning';
+                } else if (rating === 3) { // Bom (Good)
+                    newInterval = 15; // 15 minutos
+                    // Se já estava em 15m, graduamos para 1 dia, senão mantemos learning
+                    if (interval >= 15) {
+                         newInterval = 1440; // 1 dia (Gradua)
+                         newState = 'graduated';
+                    } else {
+                         newState = 'learning';
+                    }
+                } else if (rating === 4) { // Fácil (Easy)
+                    newInterval = 1440; // 1 dia direto (ou 4 dias padrão Anki, mas coloquei 1 para segurança)
+                    newState = 'graduated';
                 }
-                repetitions = prevRepetitions + 1;
-            } else {
-                repetitions = 0;
-                interval = 1;
+            } 
+            // --- FASE GRADUADA (Dias - SM2 Padrão) ---
+            else {
+                if (rating === 1) { // Errei (Volta pro Learning)
+                    newInterval = 10; // 10 minutos de punição (Relearning)
+                    newEase = Math.max(1.3, ease - 0.2);
+                    newState = 'learning';
+                } else if (rating === 2) { // Difícil
+                    newInterval = Math.floor(interval * 1.2); // Aumenta 20%
+                    newEase = Math.max(1.3, ease - 0.15);
+                    newState = 'graduated';
+                } else if (rating === 3) { // Bom
+                    newInterval = Math.floor(interval * ease); // Multiplica pelo Fator
+                    newState = 'graduated';
+                } else if (rating === 4) { // Fácil
+                    newInterval = Math.floor(interval * ease * 1.3); // Bonus extra
+                    newEase = ease + 0.15;
+                    newState = 'graduated';
+                }
             }
 
-            ef = prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-            if (ef < 1.3) ef = 1.3;
+            // Conversão final para Date object
+            const now = new Date();
+            const dueDate = new Date(now.getTime() + newInterval * 60000); // interval em minutos * 60000ms
 
-            return { interval, repetitions, ef };
+            return {
+                interval: newInterval, // Guardamos em minutos totais
+                ease: newEase,
+                state: newState,
+                dueDate: dueDate
+            };
         };
 
-        // --- COMPONENTES UI (Ícones Lucide) ---
-        // Renderiza icones usando a tag i que o script do Lucide substitui por SVG
+        // Formatador de tempo para os botões (ex: "5m", "3d")
+        const formatTime = (minutes) => {
+            if (minutes < 60) return `${minutes} min`;
+            if (minutes < 1440) return `${Math.round(minutes/60)} h`;
+            return `${Math.round(minutes/1440)} dias`;
+        };
+
+        // Simula os cálculos para mostrar nos botões
+        const simulateOptions = (currentData) => {
+            return {
+                1: calculateNextReview(1, currentData),
+                2: calculateNextReview(2, currentData),
+                3: calculateNextReview(3, currentData),
+                4: calculateNextReview(4, currentData),
+            }
+        };
+
         const Icons = {
             Brain: () => <i data-lucide="brain" className="w-6 h-6 text-blue-500"></i>,
             LogOut: () => <i data-lucide="log-out" className="w-4 h-4"></i>,
@@ -123,28 +171,22 @@
             Check: () => <i data-lucide="check" className="w-4 h-4"></i>,
             X: () => <i data-lucide="x" className="w-4 h-4"></i>,
             Folder: () => <i data-lucide="folder" className="w-4 h-4 text-amber-500"></i>,
-            File: () => <i data-lucide="file-text" className="w-4 h-4 text-slate-400"></i>,
-            Lock: () => <i data-lucide="lock" className="w-4 h-4"></i>
+            Lock: () => <i data-lucide="lock" className="w-4 h-4"></i>,
+            Clock: () => <i data-lucide="clock" className="w-4 h-4"></i>
         };
 
-        // --- MAIN APP COMPONENT ---
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [isAdmin, setIsAdmin] = React.useState(false);
-            const [view, setView] = React.useState("loading"); // loading, auth, decks, study, admin
+            const [view, setView] = React.useState("loading"); 
             const [cards, setCards] = React.useState([]);
-            const [reviews, setReviews] = React.useState({}); // Mapa de progresso do usuário
-            const [activeDeck, setActiveDeck] = React.useState(null); // Filtro atual
+            const [reviews, setReviews] = React.useState({});
             const [studyQueue, setStudyQueue] = React.useState([]);
             
-            // Render Icons Effect
             React.useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
+                if (window.lucide) window.lucide.createIcons();
             });
 
-            // Auth Listener
             React.useEffect(() => {
                 const unsub = onAuthStateChanged(auth, async (currentUser) => {
                     setUser(currentUser);
@@ -154,14 +196,13 @@
                     } else {
                         setIsAdmin(false);
                         setReviews({});
-                        await loadPublicCards(); // Visitantes veem cards mas sem progresso salvo
+                        await loadPublicCards();
                     }
                     setView(currentUser ? "decks" : "auth");
                 });
                 return () => unsub();
             }, []);
 
-            // --- DATA LOADING ---
             const loadPublicCards = async () => {
                 try {
                     const q = query(collection(db, "cards"));
@@ -169,8 +210,7 @@
                     const loadedCards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setCards(loadedCards);
                 } catch (error) {
-                    console.error("Erro ao carregar cards:", error);
-                    // Não mostramos alerta aqui para evitar spam se for apenas delay de rede
+                    console.error("Erro cards:", error);
                 }
             };
 
@@ -185,11 +225,10 @@
                     });
                     setReviews(userReviews);
                 } catch (error) {
-                    console.error("Erro ao carregar progresso:", error);
+                    console.error("Erro progresso:", error);
                 }
             };
 
-            // --- DECK LOGIC (Category/Subcategory) ---
             const getDecksStructure = () => {
                 const structure = {};
                 cards.forEach(card => {
@@ -202,7 +241,7 @@
                 return structure;
             };
 
-            const startStudy = (category, subcategory = null) => {
+            const startStudy = (category, subcategory = null, forceCram = false) => {
                 const now = new Date();
                 let queue = cards.filter(c => {
                     if (category && c.category !== category) return false;
@@ -210,104 +249,61 @@
                     return true;
                 });
 
-                // Filtrar pelo algoritmo SM-2 (apenas cards vencidos ou novos)
-                if (user) {
+                if (user && !forceCram) {
                     queue = queue.filter(card => {
                         const review = reviews[card.id];
-                        if (!review) return true; // Card novo
-                        
-                        // Verifica se é um timestamp do Firestore ou um objeto Date já convertido
+                        if (!review) return true; // Novo
                         const dueDate = review.dueDate.toDate ? review.dueDate.toDate() : new Date(review.dueDate);
-                        return dueDate <= now; // Card vencido
+                        return dueDate <= now; // Vencido
                     });
-                } else {
-                    // Visitante: Estuda tudo (Modo Cram)
+                } else if (!user) {
+                    queue = queue.sort(() => Math.random() - 0.5);
+                }
+                
+                // Se for Cram Mode (Estudo Extra), embaralha tudo
+                if (forceCram) {
                     queue = queue.sort(() => Math.random() - 0.5);
                 }
 
-                if (queue.length === 0) {
-                    alert("Parabéns! Você está em dia com esta categoria.");
+                if (queue.length === 0 && !forceCram) {
+                    // Se não tem cards normais, oferece o Cram
+                    if (confirm("Você está em dia com este baralho! Deseja iniciar um 'Estudo Extra' e revisar todos os cards mesmo assim?")) {
+                        startStudy(category, subcategory, true);
+                    }
+                    return;
+                }
+
+                if (queue.length === 0 && forceCram) {
+                    alert("Este baralho está vazio.");
                     return;
                 }
 
                 setStudyQueue(queue);
-                setActiveDeck({ category, subcategory });
                 setView("study");
             };
 
-            // --- VIEWS ---
-
-            if (view === "loading") {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-blue-500">
-                        <Icons.Brain />
-                        <span className="ml-2 font-bold animate-pulse">Carregando Córtex...</span>
-                    </div>
-                );
-            }
-
-            if (view === "auth") {
-                return <AuthScreen onLogin={() => setView("decks")} guestMode={() => setView("decks")} />;
-            }
+            if (view === "loading") return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-blue-500 animate-pulse"><Icons.Brain /> Carregando...</div>;
+            if (view === "auth") return <AuthScreen onLogin={() => setView("decks")} guestMode={() => setView("decks")} />;
 
             return (
                 <div className="min-h-screen flex flex-col bg-slate-900 text-slate-200 font-sans">
-                    {/* NAVBAR */}
                     <nav className="border-b border-slate-800 bg-slate-900/95 sticky top-0 z-50 backdrop-blur">
                         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-2 text-blue-500 font-bold text-xl cursor-pointer" onClick={() => setView("decks")}>
                                 <Icons.Brain />
-                                <span className="text-white tracking-tight">Anki<span className="text-blue-500">Pro</span></span>
+                                <span className="text-white">AnkiPro</span>
                             </div>
-                            
                             <div className="flex items-center gap-4">
-                                {isAdmin && (
-                                    <button onClick={() => setView("admin")} className="flex items-center gap-1 text-sm text-amber-500 hover:text-amber-400 font-medium px-3 py-1 rounded bg-amber-500/10 border border-amber-500/20">
-                                        <Icons.Lock /> Painel Admin
-                                    </button>
-                                )}
-                                {user ? (
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-xs text-slate-500 hidden sm:block">{user.email}</span>
-                                        <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-red-400 transition-colors">
-                                            <Icons.LogOut />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button onClick={() => setView("auth")} className="text-sm text-blue-400 font-medium">Fazer Login</button>
-                                )}
+                                {isAdmin && <button onClick={() => setView("admin")} className="text-amber-500"><Icons.Lock /></button>}
+                                {user ? <button onClick={() => signOut(auth)}><Icons.LogOut /></button> : null}
                             </div>
                         </div>
                     </nav>
 
-                    {/* CONTENT AREA */}
                     <main className="flex-1 max-w-6xl mx-auto w-full p-4">
-                        {view === "decks" && (
-                            <DecksView 
-                                structure={getDecksStructure()} 
-                                startStudy={startStudy} 
-                                totalCards={cards.length}
-                                reviews={reviews}
-                            />
-                        )}
-
-                        {view === "study" && (
-                            <StudySession 
-                                queue={studyQueue} 
-                                user={user}
-                                reviews={reviews}
-                                setReviews={setReviews}
-                                onFinish={() => setView("decks")} 
-                            />
-                        )}
-
-                        {view === "admin" && isAdmin && (
-                            <AdminPanel 
-                                cards={cards} 
-                                setCards={setCards} 
-                                onExit={() => setView("decks")}
-                            />
-                        )}
+                        {view === "decks" && <DecksView structure={getDecksStructure()} startStudy={startStudy} totalCards={cards.length} reviews={reviews} />}
+                        {view === "study" && <StudySession queue={studyQueue} user={user} reviews={reviews} setReviews={setReviews} onFinish={() => setView("decks")} />}
+                        {view === "admin" && isAdmin && <AdminPanel cards={cards} setCards={setCards} onExit={() => setView("decks")} />}
                     </main>
                 </div>
             );
@@ -318,57 +314,34 @@
             const [isRegister, setIsRegister] = React.useState(false);
             const [email, setEmail] = React.useState("");
             const [password, setPassword] = React.useState("");
-            const [error, setError] = React.useState("");
             const [loading, setLoading] = React.useState(false);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                setError("");
                 setLoading(true);
                 try {
-                    if (isRegister) {
-                        await createUserWithEmailAndPassword(auth, email, password);
-                    } else {
-                        await signInWithEmailAndPassword(auth, email, password);
-                    }
+                    if (isRegister) await createUserWithEmailAndPassword(auth, email, password);
+                    else await signInWithEmailAndPassword(auth, email, password);
                     onLogin();
                 } catch (err) {
-                    setError(err.message.includes('invalid') ? "Dados inválidos." : "Erro na autenticação.");
+                    alert(err.message);
                 } finally {
                     setLoading(false);
                 }
             };
 
             return (
-                <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 to-slate-800">
-                    <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-                        <div className="text-center mb-8">
-                            <h1 className="text-3xl font-bold text-white mb-2 flex justify-center items-center gap-2"><Icons.Brain/> AnkiPro</h1>
-                            <p className="text-slate-400 text-sm">Ciência da Computação - Espaçamento Inteligente</p>
-                        </div>
-
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900">
+                    <div className="w-full max-w-md bg-slate-800 p-8 rounded-2xl border border-slate-700">
+                        <h1 className="text-3xl font-bold text-white mb-6 text-center flex justify-center gap-2"><Icons.Brain/> AnkiPro</h1>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {error && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded">{error}</div>}
-                            <input 
-                                type="email" placeholder="Email da Facul/Pessoal" required 
-                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded text-white focus:border-blue-500 outline-none transition-colors"
-                                value={email} onChange={e => setEmail(e.target.value)}
-                            />
-                            <input 
-                                type="password" placeholder="Senha" required 
-                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded text-white focus:border-blue-500 outline-none transition-colors"
-                                value={password} onChange={e => setPassword(e.target.value)}
-                            />
-                            <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded transition-all transform hover:scale-[1.02]">
-                                {loading ? "Processando..." : (isRegister ? "Criar Conta" : "Entrar")}
-                            </button>
+                            <input type="email" placeholder="Email" className="w-full bg-slate-900 border border-slate-700 p-3 rounded text-white" value={email} onChange={e => setEmail(e.target.value)} />
+                            <input type="password" placeholder="Senha" className="w-full bg-slate-900 border border-slate-700 p-3 rounded text-white" value={password} onChange={e => setPassword(e.target.value)} />
+                            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded">{loading ? "..." : (isRegister ? "Cadastrar" : "Entrar")}</button>
                         </form>
-
-                        <div className="mt-6 flex justify-between text-xs text-slate-500">
-                            <button onClick={() => setIsRegister(!isRegister)} className="hover:text-white underline">
-                                {isRegister ? "Já tenho conta" : "Criar nova conta"}
-                            </button>
-                            <button onClick={guestMode} className="hover:text-white">Modo Visitante</button>
+                        <div className="mt-4 flex justify-between text-sm text-slate-500">
+                            <button onClick={() => setIsRegister(!isRegister)}>{isRegister ? "Já tenho conta" : "Criar conta"}</button>
+                            <button onClick={guestMode}>Visitante</button>
                         </div>
                     </div>
                 </div>
@@ -377,59 +350,33 @@
 
         // --- DECKS VIEW ---
         const DecksView = ({ structure, startStudy, totalCards, reviews }) => {
-            const categories = Object.keys(structure).sort();
-
             return (
-                <div className="animate-fade-in">
-                    <header className="mb-8 border-b border-slate-800 pb-6">
-                        <h2 className="text-2xl font-bold text-white mb-2">Meus Decks</h2>
-                        <div className="flex gap-4 text-sm text-slate-400">
-                            <span>Total de Cards: <strong className="text-white">{totalCards}</strong></span>
-                            <span>Estudados: <strong className="text-emerald-400">{Object.keys(reviews).length}</strong></span>
-                        </div>
+                <div className="animate-fade-in space-y-6">
+                    <header className="border-b border-slate-800 pb-4">
+                        <h2 className="text-2xl font-bold text-white">Meus Decks</h2>
+                        <p className="text-slate-400 text-sm">Cards Totais: {totalCards} | Aprendidos: {Object.keys(reviews).length}</p>
                     </header>
-
-                    <div className="grid gap-6">
-                        {categories.map(cat => (
-                            <div key={cat} className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-                                <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
-                                    <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                                        <Icons.Folder /> {cat}
-                                    </h3>
-                                    <button 
-                                        onClick={() => startStudy(cat)}
-                                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-full font-bold transition-colors"
-                                    >
-                                        Estudar Categoria
-                                    </button>
-                                </div>
-                                <div className="p-2">
-                                    {Object.keys(structure[cat]).map(sub => {
-                                        const count = structure[cat][sub].length;
-                                        return (
-                                            <div key={sub} className="flex justify-between items-center p-3 hover:bg-slate-700/30 rounded-lg transition-colors group">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-1 h-8 bg-slate-600 rounded-full group-hover:bg-blue-500 transition-colors"></div>
-                                                    <span className="text-slate-300 font-medium">{sub}</span>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <span className="text-xs bg-slate-700 text-slate-400 px-2 py-1 rounded">{count} cards</span>
-                                                    <button onClick={() => startStudy(cat, sub)} className="text-blue-400 hover:text-white p-2">
-                                                        <Icons.Brain />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
+                    {Object.keys(structure).sort().map(cat => (
+                        <div key={cat} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                            <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                                <h3 className="font-bold text-lg text-white flex gap-2"><Icons.Folder /> {cat}</h3>
+                                <button onClick={() => startStudy(cat)} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-full font-bold">Estudar Tudo</button>
                             </div>
-                        ))}
-                    </div>
+                            <div className="p-2">
+                                {Object.keys(structure[cat]).map(sub => (
+                                    <div key={sub} className="flex justify-between items-center p-3 hover:bg-slate-700/50 rounded-lg group cursor-pointer" onClick={() => startStudy(cat, sub)}>
+                                        <span className="text-slate-300 font-medium flex gap-2"><div className="w-1 h-6 bg-slate-600 rounded-full group-hover:bg-blue-500"></div> {sub}</span>
+                                        <span className="text-xs bg-slate-700 text-slate-400 px-2 py-1 rounded">{structure[cat][sub].length} cards</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             );
         };
 
-        // --- STUDY SESSION (CORE) ---
+        // --- STUDY SESSION ---
         const StudySession = ({ queue, user, reviews, setReviews, onFinish }) => {
             const [index, setIndex] = React.useState(0);
             const [isFlipped, setIsFlipped] = React.useState(false);
@@ -438,200 +385,113 @@
             if (finished || queue.length === 0) {
                 return (
                     <div className="flex flex-col items-center justify-center h-[60vh] text-center animate-fade-in">
-                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 text-emerald-400">
-                            <Icons.Check />
-                        </div>
-                        <h2 className="text-3xl font-bold text-white mb-2">Sessão Concluída!</h2>
-                        <p className="text-slate-400 mb-8 max-w-md">O espaçamento ideal foi calculado. Descanse seu cérebro para consolidar a memória.</p>
-                        <button onClick={onFinish} className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-3 rounded-lg font-bold transition-colors">
-                            Voltar aos Decks
-                        </button>
+                        <Icons.Check />
+                        <h2 className="text-3xl font-bold text-white mt-4">Sessão Finalizada</h2>
+                        <button onClick={onFinish} className="mt-8 bg-slate-700 hover:bg-slate-600 text-white px-8 py-3 rounded-lg font-bold">Voltar</button>
                     </div>
                 );
             }
 
             const card = queue[index];
+            const currentData = reviews[card.id] || { interval: 0, ease: 2.5, state: 'learning' };
+            
+            // Simular tempos para os botões
+            const options = simulateOptions(currentData);
 
-            const handleRate = async (quality) => {
-                // quality: 0 (Again), 3 (Hard), 4 (Good), 5 (Easy)
-                
+            const handleRate = (rating) => {
                 if (user) {
-                    // Recuperar dados anteriores ou iniciar novos
-                    const prevData = reviews[card.id] || { interval: 0, repetitions: 0, ef: 2.5 };
-                    
-                    // Calcular novos dados SM-2
-                    const result = calculateSM2(quality, prevData.interval, prevData.repetitions, prevData.ef);
-                    
-                    // Data de revisão futura
-                    const dueDate = new Date();
-                    dueDate.setDate(dueDate.getDate() + result.interval);
-
-                    // Atualizar estado local
-                    const newReviewData = { ...result, dueDate };
-                    // IMPORTANTE: Simulamos o método toDate() para que a UI funcione imediatamente sem recarregar do Firebase
-                    const newReviews = { 
-                        ...reviews, 
-                        [card.id]: { 
-                            ...newReviewData, 
-                            dueDate: { toDate: () => dueDate } 
-                        } 
-                    }; 
+                    const result = calculateNextReview(rating, currentData);
+                    const newReviews = { ...reviews, [card.id]: { ...result, dueDate: { toDate: () => result.dueDate } } };
                     setReviews(newReviews);
-
-                    // Salvar no Firestore (Fire & Forget para performance)
+                    
+                    // Salvar no Firestore
                     setDoc(doc(db, `users/${user.uid}/reviews/${card.id}`), {
-                        ...newReviewData,
+                        ...result,
                         lastReviewed: serverTimestamp()
                     });
                 }
-
+                
                 setIsFlipped(false);
-                if (index < queue.length - 1) {
-                    setTimeout(() => setIndex(index + 1), 200); // Delay suave
-                } else {
-                    setFinished(true);
-                }
+                if (index < queue.length - 1) setTimeout(() => setIndex(index + 1), 150);
+                else setFinished(true);
             };
 
             return (
-                <div className="max-w-2xl mx-auto mt-8 perspective-1000 h-[70vh] flex flex-col">
-                    <div className="flex justify-between text-xs uppercase tracking-widest text-slate-500 mb-4">
-                        <span>{card.category} &gt; {card.subcategory}</span>
-                        <span>{index + 1} / {queue.length}</span>
-                    </div>
-
-                    {/* FLASHCARD CONTAINER */}
-                    <div 
-                        className="relative flex-1 cursor-pointer group"
-                        onClick={() => setIsFlipped(!isFlipped)}
-                    >
+                <div className="max-w-2xl mx-auto mt-8 h-[75vh] flex flex-col perspective-1000">
+                    <div className="text-center text-xs text-slate-500 uppercase tracking-widest mb-4">Card {index + 1} de {queue.length}</div>
+                    
+                    <div className="relative flex-1 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
                         <div className={`w-full h-full duration-500 transform-style-3d transition-transform relative ${isFlipped ? 'rotate-y-180' : ''}`}>
-                            
-                            {/* FRENTE */}
                             <div className="absolute inset-0 backface-hidden bg-slate-800 border border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-xl">
-                                <h3 className="text-2xl font-medium text-white leading-relaxed">{card.front}</h3>
-                                <p className="absolute bottom-6 text-xs text-slate-500 animate-pulse">Toque para virar</p>
+                                <h3 className="text-2xl font-medium text-white">{card.front}</h3>
+                                <p className="absolute bottom-6 text-xs text-slate-500">Toque para ver a resposta</p>
                             </div>
-
-                            {/* VERSO */}
                             <div className="absolute inset-0 backface-hidden rotate-y-180 bg-slate-800 border-2 border-blue-600/30 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-xl">
-                                <div className="text-xl text-blue-100 leading-relaxed overflow-y-auto max-h-full scrollbar-thin">
-                                    {card.back}
-                                </div>
+                                <div className="text-xl text-blue-100 overflow-y-auto">{card.back}</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* BOTÕES DE RESPOSTA */}
-                    <div className={`grid grid-cols-4 gap-3 mt-6 transition-all duration-300 ${isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-                        <button onClick={(e) => { e.stopPropagation(); handleRate(0); }} className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors flex flex-col items-center">
-                            <span className="font-bold text-sm">Errei</span>
-                            <span className="text-[10px] opacity-70">Resetar</span>
+                    <div className={`grid grid-cols-4 gap-2 mt-6 transition-all duration-300 ${isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); handleRate(1); }} className="p-2 rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 flex flex-col items-center">
+                            <span className="font-bold text-sm">De novo</span>
+                            <span className="text-[10px] opacity-70">{formatTime(options[1].interval)}</span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleRate(3); }} className="p-3 rounded-lg bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors flex flex-col items-center">
+                        <button onClick={(e) => { e.stopPropagation(); handleRate(2); }} className="p-2 rounded bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-700 flex flex-col items-center">
                             <span className="font-bold text-sm">Difícil</span>
+                            <span className="text-[10px] opacity-70">{formatTime(options[2].interval)}</span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleRate(4); }} className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors flex flex-col items-center">
+                        <button onClick={(e) => { e.stopPropagation(); handleRate(3); }} className="p-2 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 flex flex-col items-center">
                             <span className="font-bold text-sm">Bom</span>
+                            <span className="text-[10px] opacity-70">{formatTime(options[3].interval)}</span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleRate(5); }} className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors flex flex-col items-center">
+                        <button onClick={(e) => { e.stopPropagation(); handleRate(4); }} className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 flex flex-col items-center">
                             <span className="font-bold text-sm">Fácil</span>
+                            <span className="text-[10px] opacity-70">{formatTime(options[4].interval)}</span>
                         </button>
                     </div>
                 </div>
             );
         };
 
-        // --- ADMIN PANEL ---
         const AdminPanel = ({ cards, setCards, onExit }) => {
-            const [editingId, setEditingId] = React.useState(null);
-            const [form, setForm] = React.useState({ front: '', back: '', category: 'Ciência da Computação', subcategory: '' });
-
-            const handleSubmit = async (e) => {
+            const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', subcategory: '' });
+            
+            const handleSave = async (e) => {
                 e.preventDefault();
-                if(!form.front || !form.back) return alert("Preencha Frente e Verso");
-
-                try {
-                    if (editingId) {
-                        await updateDoc(doc(db, "cards", editingId), form);
-                        setCards(cards.map(c => c.id === editingId ? { ...c, ...form } : c));
-                    } else {
-                        const ref = await addDoc(collection(db, "cards"), { ...form, createdAt: serverTimestamp() });
-                        setCards([...cards, { id: ref.id, ...form }]);
-                    }
-                    setForm({ front: '', back: '', category: 'Ciência da Computação', subcategory: '' });
-                    setEditingId(null);
-                } catch (err) {
-                    alert("Erro ao salvar: " + err.message);
-                }
+                if(!form.front || !form.back) return;
+                const ref = await addDoc(collection(db, "cards"), { ...form, createdAt: serverTimestamp() });
+                setCards([...cards, { id: ref.id, ...form }]);
+                setForm({ ...form, front: '', back: '' });
             };
 
             const handleDelete = async (id) => {
-                if(!confirm("Tem certeza?")) return;
-                try {
+                if(confirm("Deletar?")) {
                     await deleteDoc(doc(db, "cards", id));
                     setCards(cards.filter(c => c.id !== id));
-                } catch (err) {
-                    alert("Erro ao deletar.");
                 }
-            };
+            }
 
             return (
-                <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-amber-500">Gerenciamento de Cards</h2>
-                        <button onClick={onExit} className="text-slate-400 hover:text-white"><Icons.X /></button>
+                <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                    <div className="flex justify-between mb-6">
+                        <h2 className="text-xl font-bold text-amber-500">Admin</h2>
+                        <button onClick={onExit}><Icons.X /></button>
                     </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-4 mb-8 bg-slate-900/50 p-4 rounded-lg">
-                        <div className="grid grid-cols-2 gap-4">
-                            <input 
-                                className="bg-slate-800 border border-slate-700 p-2 rounded text-white text-sm"
-                                placeholder="Categoria (ex: Algoritmos)" 
-                                value={form.category} onChange={e => setForm({...form, category: e.target.value})}
-                                list="categories"
-                            />
-                            <datalist id="categories">
-                                <option value="Ciência da Computação" />
-                                <option value="Matemática Discreta" />
-                                <option value="Engenharia de Software" />
-                            </datalist>
-
-                            <input 
-                                className="bg-slate-800 border border-slate-700 p-2 rounded text-white text-sm"
-                                placeholder="Subcategoria (ex: Ordenação)" 
-                                value={form.subcategory} onChange={e => setForm({...form, subcategory: e.target.value})}
-                            />
+                    <form onSubmit={handleSave} className="space-y-4 bg-slate-900/50 p-4 rounded mb-6">
+                        <div className="grid grid-cols-2 gap-2">
+                            <input className="bg-slate-800 p-2 rounded text-white" placeholder="Categoria" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                            <input className="bg-slate-800 p-2 rounded text-white" placeholder="Subcategoria" value={form.subcategory} onChange={e => setForm({...form, subcategory: e.target.value})} />
                         </div>
-                        <textarea 
-                            className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                            placeholder="Frente (Pergunta)" rows="2"
-                            value={form.front} onChange={e => setForm({...form, front: e.target.value})}
-                        />
-                        <textarea 
-                            className="w-full bg-slate-800 border border-slate-700 p-2 rounded text-white"
-                            placeholder="Verso (Resposta)" rows="3"
-                            value={form.back} onChange={e => setForm({...form, back: e.target.value})}
-                        />
-                        <div className="flex justify-end gap-2">
-                            {editingId && <button type="button" onClick={() => { setEditingId(null); setForm({front:'', back:'', category:'', subcategory:''}) }} className="text-slate-400 text-sm px-4">Cancelar</button>}
-                            <button className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded font-bold">
-                                {editingId ? "Atualizar" : "Adicionar Card"}
-                            </button>
-                        </div>
+                        <input className="w-full bg-slate-800 p-2 rounded text-white" placeholder="Frente" value={form.front} onChange={e => setForm({...form, front: e.target.value})} />
+                        <textarea className="w-full bg-slate-800 p-2 rounded text-white" placeholder="Verso" rows="3" value={form.back} onChange={e => setForm({...form, back: e.target.value})} />
+                        <button className="w-full bg-amber-600 text-white font-bold p-2 rounded">Adicionar</button>
                     </form>
-
-                    <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                        {cards.map(card => (
-                            <div key={card.id} className="flex justify-between items-center bg-slate-900 p-3 rounded border border-slate-800 hover:border-slate-600 transition-colors">
-                                <div className="truncate flex-1">
-                                    <span className="text-xs text-blue-400 block">{card.category} / {card.subcategory}</span>
-                                    <span className="text-sm text-slate-300">{card.front}</span>
-                                </div>
-                                <div className="flex gap-2 ml-4">
-                                    <button onClick={() => { setEditingId(card.id); setForm(card); }} className="text-blue-400 hover:bg-blue-900/30 p-2 rounded"><Icons.Edit /></button>
-                                    <button onClick={() => handleDelete(card.id)} className="text-red-400 hover:bg-red-900/30 p-2 rounded"><Icons.Trash /></button>
-                                </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {cards.map(c => (
+                            <div key={c.id} className="flex justify-between bg-slate-900 p-2 rounded text-sm">
+                                <span className="truncate w-3/4">{c.front}</span>
+                                <button onClick={() => handleDelete(c.id)} className="text-red-400"><Icons.Trash /></button>
                             </div>
                         ))}
                     </div>
