@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>L1 Cache v2.3 - CS Study System</title>
+    <title>L1 Cache v2.4 - CS Study System</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -129,7 +129,8 @@
         import { 
             Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, 
             Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw,
-            Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search
+            Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search,
+            ChevronDown, ChevronRight, BookOpen, Layers
         } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
@@ -390,10 +391,14 @@
                 const structure = {};
                 cards.forEach(card => {
                     const cat = card.category || "Sem Categoria";
+                    const lesson = card.lesson || "Conteúdo Geral"; // NOVA CAMADA: Aula (Lesson)
                     const sub = card.subcategory || "Geral";
+                    
                     if (!structure[cat]) structure[cat] = {};
-                    if (!structure[cat][sub]) structure[cat][sub] = [];
-                    structure[cat][sub].push(card);
+                    if (!structure[cat][lesson]) structure[cat][lesson] = {};
+                    if (!structure[cat][lesson][sub]) structure[cat][lesson][sub] = [];
+                    
+                    structure[cat][lesson][sub].push(card);
                 });
                 return structure;
             };
@@ -440,10 +445,11 @@
                 setView("study");
             };
 
-            const startStudy = (category, subcategory = null) => {
+            const startStudy = (category, lesson = null, subcategory = null) => {
                 const now = new Date();
                 let queue = cards.filter(c => {
                     if (category && c.category !== category) return false;
+                    if (lesson && (c.lesson || 'Conteúdo Geral') !== lesson) return false;
                     if (subcategory && c.subcategory !== subcategory) return false;
                     return true;
                 });
@@ -481,7 +487,7 @@
                             <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
                             <Cpu size={24} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white" />
                         </div>
-                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INITIALIZING L1 CACHE v2.3</span>
+                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INITIALIZING L1 CACHE v2.4</span>
                     </div>
                 );
             }
@@ -496,7 +502,7 @@
                                 <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-2 rounded-lg shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform">
                                     <Cpu size={20} className="text-white" />
                                 </div>
-                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-slate-400 align-top">v2.3</span></span>
+                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-slate-400 align-top">v2.4</span></span>
                             </div>
                             <div className="flex items-center gap-4">
                                 {user && <button onClick={() => setView("leaderboard")} className="text-yellow-500 flex items-center gap-1.5 text-sm hover:text-yellow-400 font-medium bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20 transition-all hover:bg-yellow-500/20"><Trophy size={14} /> Ranking</button>}
@@ -558,7 +564,7 @@
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30">
                                 <Cpu size={32} />
                             </div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">2.3</span></h1>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">2.4</span></h1>
                             <p className="text-slate-400 text-sm">Latência zero para seu aprendizado.</p>
                         </div>
 
@@ -574,6 +580,59 @@
                         <div className="mt-6 flex justify-between text-sm text-slate-500 pt-4 border-t border-slate-700/50">
                             <button onClick={() => setIsRegister(!isRegister)} className="hover:text-blue-400 transition-colors">{isRegister ? "Já tenho conta" : "Criar nova conta"}</button>
                             <button onClick={guestMode} className="hover:text-white transition-colors">Acesso Visitante</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const LessonGroup = ({ lesson, topics, startStudy, category }) => {
+            const [isOpen, setIsOpen] = React.useState(false);
+            
+            // Conta total de cards nesta aula
+            const totalLessonCards = Object.values(topics).reduce((acc, curr) => acc + curr.length, 0);
+
+            return (
+                <div className="mb-2 bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden transition-all duration-300">
+                    <div 
+                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-800 transition-colors"
+                        onClick={() => setIsOpen(!isOpen)}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-1.5 rounded-md transition-transform duration-300 ${isOpen ? 'rotate-90 text-blue-400' : 'text-slate-500'}`}>
+                                <ChevronRight size={18} />
+                            </div>
+                            <span className="font-semibold text-slate-200 flex items-center gap-2">
+                                <BookOpen size={16} className="text-slate-500"/>
+                                {lesson}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono text-slate-500">{totalLessonCards} cards</span>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); startStudy(category, lesson); }}
+                                className="px-3 py-1 text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded border border-blue-600/30 transition-all font-bold"
+                                title="Estudar toda esta aula"
+                            >
+                                Estudar Aula
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Área Expansível (Tópicos) */}
+                    <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-2 pl-4 border-t border-slate-800 bg-slate-950/30">
+                            {Object.keys(topics).map(sub => (
+                                <div key={sub} className="flex justify-between items-center p-2 hover:bg-slate-800/50 rounded-lg group/item cursor-pointer transition-colors border-l-2 border-transparent hover:border-blue-500 ml-4" onClick={() => startStudy(category, lesson, sub)}>
+                                    <span className="text-slate-400 group-hover/item:text-slate-200 font-medium flex items-center gap-2 text-sm">
+                                        <div className="w-1 h-1 bg-slate-600 rounded-full group-hover/item:bg-blue-500 transition-all"></div> 
+                                        {sub}
+                                    </span>
+                                    <span className="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded border border-slate-700 font-mono group-hover/item:border-slate-600 group-hover/item:text-slate-300 transition-colors">
+                                        {topics[sub].length}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -612,18 +671,19 @@
                                         {cat}
                                     </h3>
                                     <button onClick={() => startStudy(cat)} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-lg shadow-blue-900/20 transition-all flex items-center gap-1.5">
-                                        <PlayCircle size={14} /> Estudar Tudo
+                                        <PlayCircle size={14} /> Estudar Matéria Completa
                                     </button>
                                 </div>
-                                <div className="p-2">
-                                    {Object.keys(structure[cat]).map(sub => (
-                                        <div key={sub} className="flex justify-between items-center p-3 hover:bg-slate-800/50 rounded-lg group/item cursor-pointer transition-colors border border-transparent hover:border-slate-700/50" onClick={() => startStudy(cat, sub)}>
-                                            <span className="text-slate-300 font-medium flex items-center gap-3 text-sm">
-                                                <div className="w-1.5 h-1.5 bg-slate-600 rounded-full group-hover/item:bg-blue-500 transition-all"></div> 
-                                                {sub}
-                                            </span>
-                                            <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700 font-mono">{structure[cat][sub].length} cards</span>
-                                        </div>
+                                <div className="p-4 bg-slate-950/20">
+                                    {/* Iterar sobre as AULAS dentro da Categoria */}
+                                    {Object.keys(structure[cat]).sort().map(lesson => (
+                                        <LessonGroup 
+                                            key={lesson} 
+                                            lesson={lesson} 
+                                            topics={structure[cat][lesson]} 
+                                            startStudy={startStudy} 
+                                            category={cat} 
+                                        />
                                     ))}
                                 </div>
                             </div>
@@ -831,7 +891,7 @@
                             <div className="flex items-center gap-2">
                                 <span className="bg-slate-900 px-2 py-1 rounded text-blue-400 border border-slate-800">{card.category}</span>
                                 <span className="text-slate-600">/</span>
-                                <span>{card.subcategory}</span>
+                                <span className="text-slate-300">{card.lesson || 'Geral'}</span>
                             </div>
                         </div>
                         
@@ -913,53 +973,53 @@
         };
 
         const AdminPanel = ({ cards, setCards, onExit }) => {
-            const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', subcategory: '' });
+            const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '' });
             const [editingId, setEditingId] = React.useState(null);
             
             // --- ESTADOS DOS FILTROS ---
             const [filterCategory, setFilterCategory] = React.useState('Todos');
+            const [filterLesson, setFilterLesson] = React.useState('Todos');
             const [filterSubcategory, setFilterSubcategory] = React.useState('Todos');
             const [searchTerm, setSearchTerm] = React.useState('');
             
             // Sugestões para o formulário (Global)
             const existingCategories = [...new Set(cards.map(c => c.category || ''))].filter(Boolean).sort();
+            const existingLessons = [...new Set(cards.map(c => c.lesson || ''))].filter(Boolean).sort();
             const existingSubcategories = [...new Set(cards.map(c => c.subcategory || ''))].filter(Boolean).sort();
             
-            // Lógica de Subcategorias Disponíveis no Filtro (Baseado na categoria selecionada)
-            const availableSubcategories = React.useMemo(() => {
-                let relevantCards = cards;
-                if (filterCategory !== 'Todos') {
-                    relevantCards = cards.filter(c => c.category === filterCategory);
-                }
-                return [...new Set(relevantCards.map(c => c.subcategory || ''))].filter(Boolean).sort();
-            }, [cards, filterCategory]);
-
-            // Lógica de Filtragem Principal
+            // Lógica de Filtragem
             const filteredCards = cards.filter(c => {
                 const matchCategory = filterCategory === 'Todos' || c.category === filterCategory;
+                const matchLesson = filterLesson === 'Todos' || (c.lesson || 'Conteúdo Geral') === filterLesson;
                 const matchSubcategory = filterSubcategory === 'Todos' || c.subcategory === filterSubcategory;
                 const matchSearch = searchTerm === '' || (c.front || '').toLowerCase().includes(searchTerm.toLowerCase());
                 
-                return matchCategory && matchSubcategory && matchSearch;
+                return matchCategory && matchLesson && matchSubcategory && matchSearch;
             });
 
             const handleSave = async (e) => {
                 e.preventDefault();
                 if(!form.front || !form.back) return;
                 try {
+                    // Garantir que lesson tenha valor
+                    const dataToSave = {
+                        ...form,
+                        lesson: form.lesson || "Conteúdo Geral"
+                    };
+
                     if (editingId) {
-                        await updateDoc(doc(db, "cards", editingId), form);
-                        setCards(cards.map(c => c.id === editingId ? { ...c, ...form } : c));
+                        await updateDoc(doc(db, "cards", editingId), dataToSave);
+                        setCards(cards.map(c => c.id === editingId ? { ...c, ...dataToSave } : c));
                         setEditingId(null);
                     } else {
-                        const ref = await addDoc(collection(db, "cards"), { ...form, createdAt: serverTimestamp() });
-                        setCards([...cards, { id: ref.id, ...form }]);
+                        const ref = await addDoc(collection(db, "cards"), { ...dataToSave, createdAt: serverTimestamp() });
+                        setCards([...cards, { id: ref.id, ...dataToSave }]);
                     }
-                    setForm({ ...form, front: '', back: '' });
+                    setForm({ ...form, front: '', back: '' }); // Mantém categoria/aula/topico para facilitar inserção em massa
                 } catch (e) { alert("Erro ao salvar: " + e.message); }
             };
 
-            const handleEdit = (card) => { setForm(card); setEditingId(card.id); };
+            const handleEdit = (card) => { setForm({...card, lesson: card.lesson || "Conteúdo Geral"}); setEditingId(card.id); };
             const handleDelete = async (id) => { if(confirm("Deletar?")) { await deleteDoc(doc(db, "cards", id)); setCards(cards.filter(c => c.id !== id)); } };
 
             return (
@@ -986,24 +1046,21 @@
                                     {/* 1. Deck Selector */}
                                     <select 
                                         value={filterCategory} 
-                                        onChange={(e) => { 
-                                            setFilterCategory(e.target.value); 
-                                            setFilterSubcategory('Todos'); // Reset sub quando muda cat
-                                        }} 
+                                        onChange={(e) => setFilterCategory(e.target.value)} 
                                         className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors"
                                     >
                                         <option value="Todos">Todas Matérias</option>
                                         {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
 
-                                    {/* 2. Topic Selector */}
+                                    {/* 2. Lesson Selector (NOVO) */}
                                     <select 
-                                        value={filterSubcategory} 
-                                        onChange={(e) => setFilterSubcategory(e.target.value)} 
+                                        value={filterLesson} 
+                                        onChange={(e) => setFilterLesson(e.target.value)} 
                                         className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors"
                                     >
-                                        <option value="Todos">Todos Tópicos</option>
-                                        {availableSubcategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                        <option value="Todos">Todas Aulas</option>
+                                        {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
                                     </select>
 
                                     {/* 3. Text Search */}
@@ -1028,9 +1085,9 @@
                                     <div key={c.id} onClick={() => handleEdit(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group ${editingId === c.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
                                         <div className="flex justify-between items-start">
                                             <div className="w-full">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate max-w-[70%]">{c.category} &gt; {c.subcategory}</span>
-                                                    {editingId === c.id && <span className="text-[10px] bg-blue-500 text-white px-1.5 rounded">EDIT</span>}
+                                                <div className="flex flex-col mb-1">
+                                                    <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate">{c.category}</span>
+                                                    <span className="text-slate-500 text-[10px] font-bold">{c.lesson || 'Geral'} &gt; {c.subcategory}</span>
                                                 </div>
                                                 <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
                                             </div>
@@ -1046,15 +1103,20 @@
                         {/* FORMULÁRIO */}
                         <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0">
                              <form onSubmit={handleSave} className="space-y-4 bg-slate-900/20 p-2 rounded-xl">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Deck (Categoria)</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Algoritmos" value={form.category} onChange={e => setForm({...form, category: e.target.value})} list="category-suggestions" />
+                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria (Deck)</label>
+                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Sistemas Operacionais" value={form.category} onChange={e => setForm({...form, category: e.target.value})} list="category-suggestions" />
                                         <datalist id="category-suggestions">{existingCategories.map((cat, i) => <option key={i} value={cat} />)}</datalist>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Tópico (Subcategoria)</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Ordenação" value={form.subcategory} onChange={e => setForm({...form, subcategory: e.target.value})} list="subcategory-suggestions" />
+                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula (Lesson)</label>
+                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Aula 01 - Introdução" value={form.lesson} onChange={e => setForm({...form, lesson: e.target.value})} list="lesson-suggestions" />
+                                        <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={i} value={l} />)}</datalist>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Tópico</label>
+                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Conceitos Básicos" value={form.subcategory} onChange={e => setForm({...form, subcategory: e.target.value})} list="subcategory-suggestions" />
                                         <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={i} value={sub} />)}</datalist>
                                     </div>
                                 </div>
@@ -1071,7 +1133,7 @@
 
                                 <div className="flex gap-3 pt-4 sticky bottom-0 bg-slate-900/90 p-4 border-t border-slate-700 -mx-2 -mb-2 rounded-b-xl backdrop-blur">
                                     {editingId && (
-                                        <button type="button" onClick={() => { setEditingId(null); setForm({ front: '', back: '', category: 'Geral', subcategory: '' }); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base">
+                                        <button type="button" onClick={() => { setEditingId(null); setForm({ front: '', back: '', category: 'Geral', lesson: '', subcategory: '' }); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base">
                                             <RotateCcw size={16}/> Cancelar
                                         </button>
                                     )}
