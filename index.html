@@ -63,6 +63,7 @@
         .prose pre code { background: transparent; color: #e2e8f0; padding: 0; border: none; }
         .prose { text-align: center; max-width: 100%; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     </style>
 </head>
 
@@ -72,11 +73,12 @@
 
     <script type="text/babel" data-type="module">
 
-        // --- IMPORTS ---
+        // --- IMPORTS FIREBASE & ICONS ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag } from "https://esm.sh/lucide-react@0.344.0?bundle";
+        // Importante: writeBatch adicionado para operações NoSQL complexas em bloco
+        import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
             apiKey: "AIzaSyClIIJkYOmAvEKPtXvG-SIi9SzxQpaBN9s",
@@ -91,7 +93,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // NORMALIZAÇÃO AGRESSIVA: Remove espaços duplos e caracteres invisíveis problemáticos
+        // NORMALIZAÇÃO AGRESSIVA: Evita inconsistências de nomenclatura no NoSQL
         const normalize = (val) => String(val || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
         // --- ERROR BOUNDARY ---
@@ -304,7 +306,7 @@
                     </div>
                     <div 
                         ref={editorRef}
-                        className="flex-1 p-4 text-white focus:outline-none overflow-y-auto prose text-sm" 
+                        className="flex-1 p-4 text-white focus:outline-none overflow-y-auto custom-scrollbar prose text-sm" 
                         contentEditable 
                         onInput={(e) => onChange(e.currentTarget.innerHTML)}
                     ></div>
@@ -327,7 +329,7 @@
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Deck (Matéria)</label>
+                                    <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Matéria</label>
                                     <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500 text-sm">
                                         <option value="All">Todas</option>
                                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -362,6 +364,7 @@
             );
         };
 
+        // Componentes StudySession, DeckTable, AuthScreen e Leaderboard mantidos e otimizados da versão anterior
         const StudySession = ({ initialQueue, user, reviews, setReviews, userStats, setUserStats, onFinish }) => {
             const [queue, setQueue] = React.useState(initialQueue);
             const [index, setIndex] = React.useState(0);
@@ -402,7 +405,7 @@
                         <div className="absolute top-0 left-0 w-full p-4 flex justify-start"><button onClick={handleUndo} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-slate-700 text-sm"><Undo2 size={16} /> Desfazer Último</button></div>
                         <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]"><Check size={48} /></div>
                         <h2 className="text-3xl font-bold text-white mb-2">Buffer Limpo</h2>
-                        <p className="text-slate-400 mb-8">Sessão completa. Bom trabalho na manutenção da sua retenção.</p>
+                        <p className="text-slate-400 mb-8">Sessão completa. Consistência é a chave para a consolidação da memória longa.</p>
                         <button onClick={onFinish} className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg border border-slate-700">Voltar ao Dashboard</button>
                     </div>
                 );
@@ -423,10 +426,10 @@
                 if (timeSpent > 60000) timeSpent = 60000; 
 
                 const colorMap = {
-                    1: 'rgba(239, 68, 68, 0.4)',  // Vermelho
-                    2: 'rgba(249, 115, 22, 0.4)', // Laranja
-                    3: 'rgba(59, 130, 246, 0.4)', // Azul
-                    4: 'rgba(16, 185, 129, 0.4)'  // Verde
+                    1: 'rgba(239, 68, 68, 0.4)', 
+                    2: 'rgba(249, 115, 22, 0.4)',
+                    3: 'rgba(59, 130, 246, 0.4)',
+                    4: 'rgba(16, 185, 129, 0.4)' 
                 };
                 
                 setFeedbackPulse({ active: true, color: colorMap[rating] });
@@ -531,7 +534,6 @@
                                     <span className="text-slate-600">/</span>
                                     <span className="text-slate-300 truncate max-w-[150px]">{card.lesson || 'Geral'}</span>
                                 </div>
-                                {/* Tags Exibidas na Sessão de Estudo */}
                                 {card.tags && card.tags.length > 0 && (
                                     <div className="flex items-center gap-1 mt-1">
                                         {card.tags.map(t => (
@@ -570,25 +572,25 @@
                     
                     <div className={`grid grid-cols-4 gap-4 mt-6 transition-all duration-300 z-10 ${isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
                         <button onClick={() => handleRate(1)} className="p-4 rounded-2xl bg-slate-900 border border-red-900/30 text-red-400 hover:bg-red-900/20 hover:border-red-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
-                            <span className="absolute top-2 right-2 text-[9px] bg-red-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 1</span>
+                            <span className="absolute top-2 right-2 text-[9px] bg-red-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">1</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-red-300">Errei</span>
                             <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[1])}</span>
                         </button>
                         
                         <button onClick={() => handleRate(2)} className="p-4 rounded-2xl bg-slate-900 border border-orange-900/30 text-orange-400 hover:bg-orange-900/20 hover:border-orange-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
-                            <span className="absolute top-2 right-2 text-[9px] bg-orange-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 2</span>
+                            <span className="absolute top-2 right-2 text-[9px] bg-orange-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">2</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-orange-300">Difícil</span>
                             <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[2])}</span>
                         </button>
                         
                         <button onClick={() => handleRate(3)} className="p-4 rounded-2xl bg-slate-900 border border-blue-900/30 text-blue-400 hover:bg-blue-900/20 hover:border-blue-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
-                            <span className="absolute top-2 right-2 text-[9px] bg-blue-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 3</span>
+                            <span className="absolute top-2 right-2 text-[9px] bg-blue-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">3</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-blue-300">Bom</span>
                             <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[3])}</span>
                         </button>
                         
                         <button onClick={() => handleRate(4)} className="p-4 rounded-2xl bg-slate-900 border border-emerald-900/30 text-emerald-400 hover:bg-emerald-900/20 hover:border-emerald-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
-                            <span className="absolute top-2 right-2 text-[9px] bg-emerald-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 4</span>
+                            <span className="absolute top-2 right-2 text-[9px] bg-emerald-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">4</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-emerald-300">Fácil</span>
                             <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[4])}</span>
                         </button>
@@ -664,7 +666,7 @@
             return (
                 <div className="glass rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl animate-slide-up">
                     <div className="grid grid-cols-12 gap-2 p-3 md:p-4 border-b border-slate-700 bg-slate-900/90 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
-                        <div className="col-span-6 md:col-span-6 pl-4 md:pl-6">Baralho (Matéria / Aula / Tópico)</div>
+                        <div className="col-span-6 md:col-span-6 pl-4 md:pl-6">Matéria / Aula / Tópico</div>
                         <div className="col-span-2 md:col-span-2 text-center text-blue-400" title="Cards Novos">Novo</div>
                         <div className="col-span-2 md:col-span-2 text-center text-orange-400" title="Cards em Aprendizado que vencem hoje">Aprender</div>
                         <div className="col-span-2 md:col-span-2 text-center text-emerald-400" title="Cards para Revisão que vencem hoje">Revisar</div>
@@ -699,7 +701,7 @@
                     <div className="w-full max-w-md glass p-8 rounded-2xl shadow-2xl relative z-10 animate-slide-up">
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><Cpu size={32} /></div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.1</span></h1>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.2</span></h1>
                             <p className="text-slate-400 text-sm">Engine SM-2 Real-time para máxima retenção em Ciência da Computação.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -828,7 +830,11 @@
             );
         };
 
+        // --- PAINEL ADMIN AVANÇADO (COM BATCH OPERATIONS) ---
         const AdminPanel = ({ cards, onExit }) => {
+            const [activeTab, setActiveTab] = React.useState('cards'); // 'cards' ou 'structure'
+            
+            // --- ESTADOS DA ABA DE CARDS ---
             const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
             const [tagInput, setTagInput] = React.useState('');
             const [editingId, setEditingId] = React.useState(null);
@@ -839,28 +845,23 @@
             const [filterTag, setFilterTag] = React.useState('Todas');
             const [searchTerm, setSearchTerm] = React.useState('');
             
-            // As opções são calculadas sem restrições. Sempre mostram tudo disponível no banco.
+            // Opções globais inferidas dos cards
             const existingCategories = [...new Set(cards.map(c => normalize(c.category)))].filter(Boolean).sort();
             const existingLessons = [...new Set(cards.map(c => normalize(c.lesson || 'Conteúdo Geral')))].filter(Boolean).sort();
             const existingSubcategories = [...new Set(cards.map(c => normalize(c.subcategory || 'Geral')))].filter(Boolean).sort();
             const existingAdminTags = [...new Set(cards.flatMap(c => c.tags || []))].filter(Boolean).sort();
 
-            // MOTO DE BUSCA ESTRITO E SANITIZADO
+            // Filtragem de cards
             const filteredCards = cards.filter(c => {
                 const cCat = normalize(c.category).toLowerCase();
                 const cLess = normalize(c.lesson || 'Conteúdo Geral').toLowerCase();
                 const cSub = normalize(c.subcategory || 'Geral').toLowerCase();
                 const cTags = c.tags || [];
 
-                const fCat = filterCategory.toLowerCase();
-                const fLess = filterLesson.toLowerCase();
-                const fSub = filterSubcategory.toLowerCase();
-                const fTag = filterTag.toLowerCase();
-
-                const matchCategory = filterCategory === 'Todos' || cCat === fCat;
-                const matchLesson = filterLesson === 'Todos' || cLess === fLess;
-                const matchSubcategory = filterSubcategory === 'Todos' || cSub === fSub;
-                const matchTag = filterTag === 'Todas' || cTags.some(t => String(t).toLowerCase() === fTag);
+                const matchCategory = filterCategory === 'Todos' || cCat === filterCategory.toLowerCase();
+                const matchLesson = filterLesson === 'Todos' || cLess === filterLesson.toLowerCase();
+                const matchSubcategory = filterSubcategory === 'Todos' || cSub === filterSubcategory.toLowerCase();
+                const matchTag = filterTag === 'Todas' || cTags.some(t => String(t).toLowerCase() === filterTag.toLowerCase());
                 
                 const searchLower = searchTerm.toLowerCase();
                 const matchSearch = searchTerm === '' || 
@@ -870,13 +871,12 @@
                 return matchCategory && matchLesson && matchSubcategory && matchTag && matchSearch;
             });
 
+            // Handlers aba de Cards
             const handleAddTag = (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
                     const newTag = tagInput.trim().toLowerCase();
-                    if (newTag && !form.tags.includes(newTag)) {
-                        setForm(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
-                    }
+                    if (newTag && !form.tags.includes(newTag)) setForm(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
                     setTagInput('');
                 }
             };
@@ -885,12 +885,9 @@
                 setForm(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tagToRemove) }));
             };
 
-            const handleSave = async (e) => {
+            const handleSaveCard = async (e) => {
                 e.preventDefault();
-                if(!form.front || !form.back) {
-                      alert("Por favor, preencha a Pergunta (Frente) e a Resposta (Verso) antes de salvar.");
-                      return;
-                }
+                if(!form.front || !form.back) { alert("Preencha Pergunta e Resposta."); return; }
                 try {
                     const dataToSave = {
                         front: form.front,
@@ -900,7 +897,6 @@
                         subcategory: normalize(form.subcategory || 'Geral'),
                         tags: form.tags 
                     };
-
                     if (editingId) {
                         await updateDoc(doc(db, "cards", editingId), dataToSave);
                         setEditingId(null);
@@ -911,162 +907,289 @@
                 } catch (e) { alert("Erro ao salvar: " + e.message); }
             };
 
-            const handleEdit = (card) => { 
+            const handleEditCard = (card) => { 
                 setForm({
-                    front: card.front,
-                    back: card.back,
-                    category: normalize(card.category),
-                    lesson: normalize(card.lesson || 'Conteúdo Geral'),
-                    subcategory: normalize(card.subcategory),
-                    tags: card.tags || [] 
+                    front: card.front, back: card.back,
+                    category: normalize(card.category), lesson: normalize(card.lesson || 'Conteúdo Geral'),
+                    subcategory: normalize(card.subcategory), tags: card.tags || [] 
                 }); 
                 setEditingId(card.id); 
             };
             
-            const handleDelete = async (id) => { 
-                if(confirm("Deletar este node da base de conhecimento?")) { 
-                    await deleteDoc(doc(db, "cards", id)); 
-                } 
+            const handleDeleteCard = async (id) => { 
+                if(confirm("Deletar este card de forma irreversível?")) await deleteDoc(doc(db, "cards", id)); 
             };
+
+            // --- LÓGICA DA ABA DE ESTRUTURA (BATCH OPERATIONS) ---
+            const getStructureTree = () => {
+                const tree = {};
+                cards.forEach(c => {
+                    const cat = normalize(c.category || 'Geral');
+                    const les = normalize(c.lesson || 'Conteúdo Geral');
+                    const sub = normalize(c.subcategory || 'Geral');
+                    if(!tree[cat]) tree[cat] = { count: 0, lessons: {} };
+                    if(!tree[cat].lessons[les]) tree[cat].lessons[les] = { count: 0, subcategories: {} };
+                    if(!tree[cat].lessons[les].subcategories[sub]) tree[cat].lessons[les].subcategories[sub] = { count: 0, cards: [] };
+
+                    tree[cat].count++;
+                    tree[cat].lessons[les].count++;
+                    tree[cat].lessons[les].subcategories[sub].count++;
+                    tree[cat].lessons[les].subcategories[sub].cards.push(c);
+                });
+                return tree;
+            };
+
+            // Função robusta de Rename em Lote utilizando NoSQL writeBatch
+            const handleBulkRename = async (type, oldName, contextParams) => {
+                const newName = prompt(`Digite o novo nome para a ${type === 'category' ? 'Matéria' : type === 'lesson' ? 'Aula' : 'Tópico'} "${oldName}":`, oldName);
+                if (!newName || normalize(newName) === normalize(oldName)) return;
+
+                const normalizedNewName = normalize(newName);
+
+                const batch = writeBatch(db);
+                let affectedCards = [];
+
+                if (type === 'category') {
+                    affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(oldName));
+                } else if (type === 'lesson') {
+                    affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(contextParams.cat) && normalize(c.lesson || 'Conteúdo Geral') === normalize(oldName));
+                } else if (type === 'subcategory') {
+                    affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(contextParams.cat) && normalize(c.lesson || 'Conteúdo Geral') === normalize(contextParams.les) && normalize(c.subcategory || 'Geral') === normalize(oldName));
+                }
+
+                if (affectedCards.length === 0) return;
+
+                if (!confirm(`Isso modificará ${affectedCards.length} cards instantaneamente. Tem certeza?`)) return;
+
+                affectedCards.forEach(c => {
+                    const cardRef = doc(db, 'cards', c.id);
+                    const updateData = {};
+                    if (type === 'category') updateData.category = normalizedNewName;
+                    if (type === 'lesson') updateData.lesson = normalizedNewName;
+                    if (type === 'subcategory') updateData.subcategory = normalizedNewName;
+                    batch.update(cardRef, updateData);
+                });
+
+                try {
+                    await batch.commit();
+                } catch(e) { alert("Erro ao renomear em lote: " + e.message); }
+            };
+
+            // Função robusta de Deleção em Lote utilizando NoSQL writeBatch
+            const handleBulkDelete = async (type, name, contextParams) => {
+                let affectedCards = [];
+                if (type === 'category') affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(name));
+                else if (type === 'lesson') affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(contextParams.cat) && normalize(c.lesson || 'Conteúdo Geral') === normalize(name));
+                else if (type === 'subcategory') affectedCards = cards.filter(c => normalize(c.category || 'Geral') === normalize(contextParams.cat) && normalize(c.lesson || 'Conteúdo Geral') === normalize(contextParams.les) && normalize(c.subcategory || 'Geral') === normalize(name));
+
+                if (affectedCards.length === 0) return;
+
+                if (!confirm(`ATENÇÃO DESTRUTIVA: Você está prestes a excluir a ${type === 'category' ? 'Matéria' : type === 'lesson' ? 'Aula' : 'Tópico'} "${name}".\n\nIsso DELETARÁ DEFINITIVAMENTE ${affectedCards.length} CARDS da base de dados.\n\nEssa ação não pode ser desfeita. Confirmar?`)) return;
+
+                const batch = writeBatch(db);
+                affectedCards.forEach(c => batch.delete(doc(db, 'cards', c.id)));
+
+                try {
+                    await batch.commit();
+                } catch(e) { alert("Erro ao deletar em lote: " + e.message); }
+            };
+
+            const structureTree = getStructureTree();
 
             return (
                 <div className="glass p-6 rounded-2xl border border-slate-700 min-h-screen md:h-[calc(100vh-100px)] flex flex-col shadow-2xl animate-fade-in">
-                    <div className="flex justify-between mb-4 border-b border-slate-700 pb-4 flex-shrink-0">
-                        <h2 className="text-xl font-bold text-amber-500 flex items-center gap-2"><Lock size={18}/> {editingId ? 'Editando Node' : 'Console Admin (Real-time)'}</h2>
-                        <button onClick={onExit} className="hover:text-white text-slate-400 transition-colors bg-slate-800 p-2 rounded-lg"><X size={20} /></button>
-                    </div>
-                    <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden">
-                        
-                        {/* SIDEBAR DE LISTAGEM */}
-                        <div className="w-full md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-auto">
-                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros Avançados Estritos</span></div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
-                                        <option value="Todos">Todas Matérias</option>
-                                        {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                    <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
-                                        <option value="Todos">Todas Aulas</option>
-                                        {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
-                                    </select>
-                                    <select value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 transition-colors">
-                                        <option value="Todos">Todos Tópicos</option>
-                                        {existingSubcategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
-                                    </select>
-                                    <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 transition-colors">
-                                        <option value="Todas">Qualquer Tag</option>
-                                        {existingAdminTags.map(t => <option key={t} value={t}>#{t}</option>)}
-                                    </select>
-                                </div>
-                                
-                                <div className="relative">
-                                    <input type="text" placeholder="Buscar no texto (frente ou verso)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"/>
-                                    <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
-                                </div>
-                                
-                                {/* HUD DE DEBUG - Exibe com exatidão matemática o que o motor está lendo */}
-                                <div className="bg-black/40 p-2 rounded border border-slate-800 flex flex-col gap-1">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">Memória do Motor React:</span>
-                                        <button onClick={() => { setFilterCategory('Todos'); setFilterLesson('Todos'); setFilterSubcategory('Todos'); setFilterTag('Todas'); setSearchTerm(''); }} className="text-[10px] text-blue-400 hover:text-blue-300 uppercase font-bold">Zerar Filtros</button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {filterCategory !== 'Todos' && <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] text-slate-400 border border-slate-700">MAT: {filterCategory}</span>}
-                                        {filterLesson !== 'Todos' && <span className="bg-blue-900/30 px-1.5 py-0.5 rounded text-[9px] text-blue-400 border border-blue-800/50">AUL: {filterLesson}</span>}
-                                        {filterSubcategory !== 'Todos' && <span className="bg-purple-900/30 px-1.5 py-0.5 rounded text-[9px] text-purple-400 border border-purple-800/50">TOP: {filterSubcategory}</span>}
-                                        {filterTag !== 'Todas' && <span className="bg-amber-900/30 px-1.5 py-0.5 rounded text-[9px] text-amber-400 border border-amber-800/50">TAG: {filterTag}</span>}
-                                        {searchTerm !== '' && <span className="bg-emerald-900/30 px-1.5 py-0.5 rounded text-[9px] text-emerald-400 border border-emerald-800/50">TXT: "{searchTerm}"</span>}
-                                        {filterCategory === 'Todos' && filterLesson === 'Todos' && filterSubcategory === 'Todos' && filterTag === 'Todas' && searchTerm === '' && <span className="text-[9px] text-slate-600 italic">Nenhum filtro aplicado. Vendo toda a base.</span>}
-                                    </div>
-                                </div>
-                                
-                                <div className="text-xs text-slate-400 text-right font-mono font-bold bg-slate-950 px-2 py-1 rounded border border-slate-800">{filteredCards.length} Cards encontrados</div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                {filteredCards.map(c => (
-                                    <div key={c.id} onClick={() => handleEdit(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group ${editingId === c.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <div className="w-full">
-                                                <div className="flex flex-col mb-1">
-                                                    <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate">{c.category}</span>
-                                                    <span className="text-slate-500 text-[10px] font-bold">{c.lesson} &gt; {c.subcategory || 'Geral'}</span>
-                                                </div>
-                                                <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
-                                                
-                                                {c.tags && c.tags.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1 mt-2">
-                                                        {c.tags.map(t => <span key={t} className="bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded text-[9px] border border-purple-500/30">#{t}</span>)}
-                                                    </div>
-                                                )}
-
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors" title="Excluir"><Trash2 size={14}/></button>
-                                        </div>
-                                    </div>
-                                ))}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 border-b border-slate-700 pb-4 flex-shrink-0 gap-4">
+                        <div className="flex items-center gap-3">
+                            <Lock size={20} className="text-amber-500"/>
+                            <div>
+                                <h2 className="text-xl font-bold text-white leading-tight">Console Admin</h2>
+                                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded uppercase font-bold tracking-widest border border-emerald-500/30 flex items-center gap-1 inline-flex mt-1"><Network size={10}/> Real-time Sync Ativo</span>
                             </div>
                         </div>
+                        
+                        <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700/50">
+                            <button onClick={() => setActiveTab('cards')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'cards' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Layers size={16}/> Gestão de Cards</button>
+                            <button onClick={() => setActiveTab('structure')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'structure' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Folder size={16}/> Gerenciar Estrutura (Pastas)</button>
+                        </div>
 
-                        {/* FORMULÁRIO DE EDIÇÃO */}
-                        <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0">
-                             <form onSubmit={handleSave} className="space-y-4 bg-slate-900/20 p-2 rounded-xl">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria (Deck)</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Sistemas Operacionais" value={form.category} onChange={e => setForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
-                                        <datalist id="category-suggestions">{existingCategories.map((cat, i) => <option key={i} value={cat} />)}</datalist>
+                        <button onClick={onExit} className="hover:text-white text-slate-400 transition-colors bg-slate-800 p-2 rounded-lg self-end md:self-auto"><X size={20} /></button>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden flex flex-col">
+                        
+                        {/* ABA: GESTÃO DE CARDS (Original Otimizada) */}
+                        {activeTab === 'cards' && (
+                            <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden h-full">
+                                {/* SIDEBAR DE LISTAGEM */}
+                                <div className="w-full md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-full">
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
+                                        <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros Avançados</span></div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                                <option value="Todos">Todas Matérias</option>
+                                                {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            </select>
+                                            <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                                <option value="Todos">Todas Aulas</option>
+                                                {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                            </select>
+                                            <select value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500">
+                                                <option value="Todos">Todos Tópicos</option>
+                                                {existingSubcategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                            </select>
+                                            <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500">
+                                                <option value="Todas">Qualquer Tag</option>
+                                                {existingAdminTags.map(t => <option key={t} value={t}>#{t}</option>)}
+                                            </select>
+                                        </div>
+                                        
+                                        <div className="relative">
+                                            <input type="text" placeholder="Buscar no texto (frente ou verso)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 placeholder:text-slate-600"/>
+                                            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
+                                        </div>
+                                        
+                                        <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+                                            <button onClick={() => { setFilterCategory('Todos'); setFilterLesson('Todos'); setFilterSubcategory('Todos'); setFilterTag('Todas'); setSearchTerm(''); }} className="text-blue-400 hover:text-blue-300 uppercase font-bold">Limpar</button>
+                                            <span className="font-bold bg-slate-950 px-2 py-1 rounded border border-slate-800">{filteredCards.length} Cards</span>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula (Lesson)</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Aula 01 - Introdução" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
-                                        <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={l} value={l} />)}</datalist>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Tópico</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Conceitos Básicos" value={form.subcategory} onChange={e => setForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
-                                        <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={sub} value={sub} />)}</datalist>
-                                    </div>
-                                </div>
-                                
-                                {/* INPUT DINÂMICO DE TAGS */}
-                                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                                    <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Indexação / Tags (Pressione Enter)</label>
-                                    
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        {form.tags.map(t => (
-                                            <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
-                                                #{t} <button type="button" onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
-                                            </span>
+
+                                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                        {filteredCards.map(c => (
+                                            <div key={c.id} onClick={() => handleEditCard(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group ${editingId === c.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
+                                                <div className="flex justify-between items-start">
+                                                    <div className="w-full">
+                                                        <div className="flex flex-col mb-1">
+                                                            <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate">{c.category}</span>
+                                                            <span className="text-slate-500 text-[10px] font-bold">{c.lesson} &gt; {c.subcategory || 'Geral'}</span>
+                                                        </div>
+                                                        <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors" title="Excluir"><Trash2 size={14}/></button>
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none transition-all font-mono text-sm placeholder:text-slate-600" 
-                                        placeholder="Digite uma tag e pressione Enter (ex: algoritmos)" 
-                                        value={tagInput} 
-                                        onChange={e => setTagInput(e.target.value)} 
-                                        onKeyDown={handleAddTag}
-                                        list="tag-suggestions"
-                                    />
-                                    <datalist id="tag-suggestions">{existingAdminTags.map((t, i) => <option key={t} value={t} />)}</datalist>
                                 </div>
 
-                                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Input: Pergunta (Frente)</label><RichTextEditor value={form.front} onChange={(val) => setForm(prev => ({...prev, front: val}))} /></div>
-                                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Output: Resposta (Verso)</label><RichTextEditor value={form.back} onChange={(val) => setForm(prev => ({...prev, back: val}))} /></div>
-                                
-                                <div className="flex gap-3 pt-4 sticky bottom-0 bg-slate-900/90 p-4 border-t border-slate-700 -mx-2 -mb-2 rounded-b-xl backdrop-blur z-20">
-                                    {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm(prev => ({ ...prev, front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"><RotateCcw size={16}/> Cancelar</button>)}
-                                    <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex justify-center gap-2 items-center transform hover:scale-[1.01] text-sm md:text-base">{editingId ? <><Save size={18} /> Salvar Alterações</> : <><Plus size={18} /> Inserir no Banco de Dados</>}</button>
+                                {/* FORMULÁRIO DE EDIÇÃO */}
+                                <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0 h-full">
+                                     <form onSubmit={handleSaveCard} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria (Deck)</label>
+                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Ex: Sistemas Operacionais" value={form.category} onChange={e => setForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
+                                                <datalist id="category-suggestions">{existingCategories.map((cat, i) => <option key={i} value={cat} />)}</datalist>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula (Lesson)</label>
+                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Ex: Aula 01" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
+                                                <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={l} value={l} />)}</datalist>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Tópico</label>
+                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Ex: Conceitos Básicos" value={form.subcategory} onChange={e => setForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
+                                                <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={sub} value={sub} />)}</datalist>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex-shrink-0">
+                                            <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Indexação / Tags (Enter)</label>
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {form.tags.map(t => (
+                                                    <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
+                                                        #{t} <button type="button" onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm" placeholder="Digite uma tag e pressione Enter" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} list="tag-suggestions" />
+                                            <datalist id="tag-suggestions">{existingAdminTags.map((t, i) => <option key={t} value={t} />)}</datalist>
+                                        </div>
+
+                                        <div className="flex-1 min-h-[300px] flex flex-col gap-4">
+                                            <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Input: Pergunta</label><RichTextEditor value={form.front} onChange={(val) => setForm(prev => ({...prev, front: val}))} /></div>
+                                            <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Output: Resposta</label><RichTextEditor value={form.back} onChange={(val) => setForm(prev => ({...prev, back: val}))} /></div>
+                                        </div>
+                                        
+                                        <div className="flex gap-3 pt-4 border-t border-slate-700 flex-shrink-0 mt-auto">
+                                            {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm(prev => ({ ...prev, front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"><RotateCcw size={16}/> Cancelar</button>)}
+                                            <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex justify-center gap-2 items-center">{editingId ? <><Save size={18} /> Atualizar Card</> : <><Plus size={18} /> Inserir Novo Card</>}</button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </form>
-                        </div>
+                            </div>
+                        )}
+
+                        {/* ABA: GESTÃO DE ESTRUTURA (NOVO) */}
+                        {activeTab === 'structure' && (
+                            <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30 rounded-xl border border-slate-700 p-4">
+                                <div className="mb-6 p-4 bg-amber-900/20 border border-amber-500/30 rounded-xl">
+                                    <h3 className="text-amber-500 font-bold flex items-center gap-2 mb-2"><AlertCircle size={18}/> Operações em Lote (Batch Operations)</h3>
+                                    <p className="text-slate-300 text-sm">Ao renomear ou excluir itens nesta aba, o sistema utilizará o motor NoSQL em background para alterar automaticamente todos os Flashcards que pertencem a essa estrutura simultaneamente. A alteração será refletida em toda a interface em tempo real.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {Object.keys(structureTree).sort().map(cat => (
+                                        <div key={cat} className="bg-slate-800/40 border border-slate-700 rounded-lg overflow-hidden">
+                                            {/* LINHA DA MATÉRIA */}
+                                            <div className="bg-slate-800/80 p-3 flex items-center justify-between group">
+                                                <div className="flex items-center gap-3">
+                                                    <Folder className="text-blue-400" size={20}/>
+                                                    <span className="font-bold text-white text-lg">{cat}</span>
+                                                    <span className="bg-slate-900 text-slate-400 px-2 py-0.5 rounded-full text-xs border border-slate-700">{structureTree[cat].count} cards</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleBulkRename('category', cat)} className="p-1.5 bg-slate-700 hover:bg-blue-600 text-slate-300 hover:text-white rounded transition-colors" title="Renomear Matéria (Atualiza todos os cards)"><Pencil size={14}/></button>
+                                                    <button onClick={() => handleBulkDelete('category', cat)} className="p-1.5 bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white rounded transition-colors" title="Excluir Matéria e TODOS os cards"><Trash2 size={14}/></button>
+                                                </div>
+                                            </div>
+
+                                            {/* AULAS DENTRO DA MATÉRIA */}
+                                            <div className="pl-6 border-l-2 border-slate-700/50 ml-5 py-2 space-y-2">
+                                                {Object.keys(structureTree[cat].lessons).sort().map(les => (
+                                                    <div key={les} className="space-y-1">
+                                                        <div className="flex items-center justify-between group p-2 hover:bg-slate-700/30 rounded-lg transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <BookOpen className="text-orange-400" size={16}/>
+                                                                <span className="font-medium text-slate-200">{les}</span>
+                                                                <span className="text-slate-500 text-xs font-mono">({structureTree[cat].lessons[les].count})</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={() => handleBulkRename('lesson', les, {cat})} className="p-1 text-slate-400 hover:text-blue-400"><Pencil size={14}/></button>
+                                                                <button onClick={() => handleBulkDelete('lesson', les, {cat})} className="p-1 text-slate-400 hover:text-red-400"><Trash2 size={14}/></button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* TÓPICOS DENTRO DA AULA */}
+                                                        <div className="pl-6 space-y-1">
+                                                            {Object.keys(structureTree[cat].lessons[les].subcategories).sort().map(sub => (
+                                                                <div key={sub} className="flex items-center justify-between group p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Layers className="text-emerald-400" size={14}/>
+                                                                        <span className="text-sm text-slate-400">{sub}</span>
+                                                                        <span className="text-slate-600 text-[10px] font-mono">({structureTree[cat].lessons[les].subcategories[sub].count})</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
+                                                                        <button onClick={() => handleBulkRename('subcategory', sub, {cat, les})} className="p-1 text-slate-500 hover:text-blue-400"><Pencil size={12}/></button>
+                                                                        <button onClick={() => handleBulkDelete('subcategory', sub, {cat, les})} className="p-1 text-slate-500 hover:text-red-400"><Trash2 size={12}/></button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {Object.keys(structureTree).length === 0 && (
+                                        <div className="text-center p-10 text-slate-500 border border-dashed border-slate-700 rounded-xl">Nenhum card cadastrado. Adicione cards na aba "Gestão de Cards" para montar sua estrutura.</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -1279,7 +1402,7 @@
                             <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
                             <Cpu size={24} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white" />
                         </div>
-                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO O L1 CACHE v1.2 (STRICT)...</span>
+                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO L1 CACHE (BATCH OP ENGINE)...</span>
                     </div>
                 );
             }
@@ -1305,7 +1428,7 @@
                                 <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-2 rounded-lg shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform">
                                     <Cpu size={20} className="text-white" />
                                 </div>
-                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top">RT</span></span>
+                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top border border-blue-500/30">BATCH</span></span>
                             </div>
                             <div className="flex items-center gap-4">
                                 {user && <button onClick={() => setView("leaderboard")} className="text-yellow-500 flex items-center gap-1.5 text-sm hover:text-yellow-400 font-medium bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20 transition-all hover:bg-yellow-500/20"><Trophy size={14} /> Ranking Global</button>}
