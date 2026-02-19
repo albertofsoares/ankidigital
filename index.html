@@ -131,17 +131,17 @@
             const STEPS = (state === 'relearning') ? [10] : LEARNING_STEPS;
 
             if (state === 'new' || state === 'learning' || state === 'relearning') {
-                if (rating === 1) { // Errei
+                if (rating === 1) { // Errei (Again)
                     newStep = 0;
                     dueMinutes = STEPS[0];
                     newState = state === 'new' ? 'learning' : state; 
                 } 
-                else if (rating === 2) { // Difícil
+                else if (rating === 2) { // Difícil (Hard)
                     dueMinutes = Math.floor((STEPS[step] || STEPS[0]) * 1.5);
                     if (dueMinutes < 1) dueMinutes = 1;
                     newState = state === 'new' ? 'learning' : state;
                 } 
-                else if (rating === 3) { // Bom
+                else if (rating === 3) { // Bom (Good)
                     if (step < STEPS.length - 1) {
                         newStep = step + 1;
                         dueMinutes = STEPS[newStep];
@@ -156,7 +156,7 @@
                         newStep = 0;
                     }
                 } 
-                else if (rating === 4) { // Fácil
+                else if (rating === 4) { // Fácil (Easy)
                     if (state === 'relearning') {
                         newInterval = Math.max(1, interval + 1);
                     } else {
@@ -167,23 +167,23 @@
                 }
             } 
             else if (state === 'review') {
-                if (rating === 1) { // Errei Lapse
+                if (rating === 1) { // Errei (Lapse/Again)
                     newEase = Math.max(1.3, ease - 0.20);
                     newInterval = Math.max(1, Math.floor(interval * 0.2)); 
                     newState = 'relearning';
                     newStep = 0;
                     dueMinutes = STEPS[0]; 
                 } 
-                else if (rating === 2) { // Difícil
+                else if (rating === 2) { // Difícil (Hard)
                     newEase = Math.max(1.3, ease - 0.15);
                     newInterval = Math.max(interval + 1, Math.floor(interval * 1.2));
                     newState = 'review';
                 } 
-                else if (rating === 3) { // Bom
+                else if (rating === 3) { // Bom (Good)
                     newInterval = Math.max(interval + 1, Math.floor(interval * ease));
                     newState = 'review';
                 } 
-                else if (rating === 4) { // Fácil
+                else if (rating === 4) { // Fácil (Easy)
                     newEase = ease + 0.15;
                     newInterval = Math.max(interval + 1, Math.floor(interval * ease * 1.3));
                     newState = 'review';
@@ -311,11 +311,12 @@
             );
         };
 
-        const CustomStudyModal = ({ isOpen, onClose, onStart, categories, availableTags }) => {
+        // --- ATUALIZADO: Custom Study Modal suportando Tags Dinâmicas ---
+        const CustomStudyModal = ({ isOpen, onClose, onStart, categories, tags }) => {
             const [mode, setMode] = React.useState('due');
             const [limit, setLimit] = React.useState(20);
             const [selectedCategory, setSelectedCategory] = React.useState('All');
-            const [selectedTag, setSelectedTag] = React.useState('All');
+            const [selectedTag, setSelectedTag] = React.useState('All'); // Novo estado de Tag
             
             if (!isOpen) return null;
             return (
@@ -327,16 +328,16 @@
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Deck (Matéria)</label>
-                                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500">
-                                        <option value="All">Todas as Matérias</option>
+                                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500 text-sm">
+                                        <option value="All">Todas</option>
                                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 text-xs uppercase font-bold mb-2 flex items-center gap-1"><Tag size={12}/> Tag Específica</label>
-                                    <select value={selectedTag} onChange={e => setSelectedTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500">
-                                        <option value="All">Sem filtro de Tag</option>
-                                        {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
+                                    <label className="block text-slate-400 text-xs uppercase font-bold mb-2 flex items-center gap-1"><Tag size={12}/> Filtrar por Tag</label>
+                                    <select value={selectedTag} onChange={e => setSelectedTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-blue-500 text-sm">
+                                        <option value="All">Qualquer Tag</option>
+                                        {tags.map(t => <option key={t} value={t}>#{t}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -344,10 +345,10 @@
                             <div>
                                 <label className="block text-slate-400 text-xs uppercase font-bold mb-2">Modo de Estudo</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={() => setMode('due')} className={`p-3 rounded-lg text-sm border transition-colors ${mode === 'due' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Revisão (Vencidos)</button>
-                                    <button onClick={() => setMode('cram')} className={`p-3 rounded-lg text-sm border transition-colors ${mode === 'cram' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Cram (Intensivo)</button>
-                                    <button onClick={() => setMode('new')} className={`p-3 rounded-lg text-sm border transition-colors ${mode === 'new' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Apenas Novos</button>
-                                    <button onClick={() => setMode('all')} className={`p-3 rounded-lg text-sm border transition-colors ${mode === 'all' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todos os Cards</button>
+                                    <button onClick={() => setMode('due')} className={`p-3 rounded-lg text-sm border ${mode === 'due' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Revisão (Vencidos)</button>
+                                    <button onClick={() => setMode('cram')} className={`p-3 rounded-lg text-sm border ${mode === 'cram' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Cram (Intensivo)</button>
+                                    <button onClick={() => setMode('new')} className={`p-3 rounded-lg text-sm border ${mode === 'new' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Apenas Novos</button>
+                                    <button onClick={() => setMode('all')} className={`p-3 rounded-lg text-sm border ${mode === 'all' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todos os Cards</button>
                                 </div>
                             </div>
                             <div>
@@ -402,7 +403,7 @@
                         <div className="absolute top-0 left-0 w-full p-4 flex justify-start"><button onClick={handleUndo} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-slate-700 text-sm"><Undo2 size={16} /> Desfazer Último</button></div>
                         <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]"><Check size={48} /></div>
                         <h2 className="text-3xl font-bold text-white mb-2">Buffer Limpo</h2>
-                        <p className="text-slate-400 mb-8">Sessão completa. Excelente trabalho na sua retenção a longo prazo.</p>
+                        <p className="text-slate-400 mb-8">Sessão completa. Bom trabalho na manutenção da sua retenção.</p>
                         <button onClick={onFinish} className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg border border-slate-700">Voltar ao Dashboard</button>
                     </div>
                 );
@@ -504,6 +505,7 @@
             return (
                 <div className="max-w-3xl mx-auto mt-4 h-[80vh] flex flex-col perspective-1000 relative">
                     
+                    {/* OVERLAY Dopaminérgico */}
                     <div 
                         className={`fixed inset-0 pointer-events-none z-[100] ${feedbackPulse.active ? 'transition-none' : 'transition-opacity duration-500 ease-out'}`}
                         style={{
@@ -520,13 +522,24 @@
 
                     <div className="w-full h-1 bg-slate-800 rounded-full mb-4 overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-500 ease-out shadow-[0_0_10px_#3b82f6]" style={{ width: `${progress}%` }}></div></div>
                     
+                    {/* Header de Status */}
                     <div className="flex justify-between items-center text-xs text-slate-500 uppercase tracking-widest mb-4 px-2">
                         <div className="flex items-center gap-4">
                             <button onClick={handleUndo} disabled={index === 0} title="Desfazer (Ctrl+Z)" className={`flex items-center gap-1 transition-colors ${index === 0 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-white'}`}><Undo2 size={16} /> <span className="hidden sm:inline">Desfazer</span></button>
-                            <div className="flex items-center gap-2">
-                                <span className="bg-slate-900 px-2 py-1 rounded text-blue-400 border border-slate-800 truncate max-w-[100px] md:max-w-none">{card.category}</span>
-                                <span className="text-slate-600">/</span>
-                                <span className="text-slate-300 truncate max-w-[150px]">{card.lesson || 'Geral'}</span>
+                            <div className="flex flex-col items-start">
+                                <div className="flex items-center gap-2">
+                                    <span className="bg-slate-900 px-2 py-1 rounded text-blue-400 border border-slate-800">{card.category}</span>
+                                    <span className="text-slate-600">/</span>
+                                    <span className="text-slate-300 truncate max-w-[150px]">{card.lesson || 'Geral'}</span>
+                                </div>
+                                {/* Tags Exibidas na Sessão de Estudo */}
+                                {card.tags && card.tags.length > 0 && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                        {card.tags.map(t => (
+                                            <span key={t} className="bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded text-[9px] border border-purple-500/30 flex items-center gap-0.5"><Tag size={8}/> {t}</span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -545,16 +558,7 @@
                         <div className={`w-full h-full duration-500 transform-style-3d transition-transform relative ${isFlipped ? 'rotate-y-180' : ''}`}>
                             <div className="absolute inset-0 backface-hidden glass border border-slate-700 rounded-3xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl overflow-hidden bg-slate-900/90">
                                 <div className="absolute top-4 right-4 text-slate-600 hover:text-blue-400 cursor-pointer transition-colors z-20" title="Ouvir Pergunta" onClick={(e) => { e.stopPropagation(); speakText(card.front); }}><Volume2 size={24} /></div>
-                                
-                                {card.tags && card.tags.length > 0 && (
-                                    <div className="absolute top-4 left-4 flex flex-wrap gap-1 max-w-[70%]">
-                                        {card.tags.map(t => (
-                                            <span key={t} className="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1"><Tag size={10}/> {t}</span>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative mt-4"><div className="w-full max-h-full overflow-y-auto custom-scrollbar px-4 flex flex-col items-center justify-center"><div className="prose prose-invert prose-lg md:prose-2xl font-medium text-white select-text w-full max-w-none leading-relaxed break-words" dangerouslySetInnerHTML={{__html: card.front || ''}}></div></div></div>
+                                <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative"><div className="w-full max-h-full overflow-y-auto custom-scrollbar px-4 flex flex-col items-center justify-center"><div className="prose prose-invert prose-lg md:prose-2xl font-medium text-white select-text w-full max-w-none leading-relaxed break-words" dangerouslySetInnerHTML={{__html: card.front || ''}}></div></div></div>
                                 <button onClick={() => setIsFlipped(true)} className="mt-6 bg-slate-800 hover:bg-slate-700 text-blue-400 px-8 py-3 rounded-full font-bold transition-all flex items-center gap-2 border border-slate-700 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] group shrink-0 z-10"><Eye size={18} className="group-hover:scale-110 transition-transform" /> <span className="text-sm">Revelar</span></button>
                             </div>
                             <div className="absolute inset-0 backface-hidden rotate-y-180 glass border-2 border-blue-500/30 rounded-3xl p-6 md:p-8 flex flex-col items-center shadow-2xl overflow-hidden bg-slate-900/95">
@@ -686,6 +690,7 @@
             const [studyQueue, setStudyQueue] = React.useState([]);
             const [customStudyOpen, setCustomStudyOpen] = React.useState(false);
             
+            // Effect 1: Auth & Global Cards (Real-time listener)
             React.useEffect(() => {
                 const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
                     setUser(currentUser);
@@ -709,7 +714,7 @@
                             category: normalize(data.category || 'Sem Categoria'),
                             lesson: normalize(data.lesson || 'Conteúdo Geral'),
                             subcategory: normalize(data.subcategory || 'Geral'),
-                            tags: data.tags || [] // Trazendo Tags do Firestore
+                            tags: Array.isArray(data.tags) ? data.tags : [] // Suporte a Tags Seguras
                         };
                     });
                     setCards(loadedCards);
@@ -721,6 +726,7 @@
                 };
             }, []);
 
+            // Effect 2: User specific data (Real-time listeners)
             React.useEffect(() => {
                 if (!user) return;
 
@@ -814,9 +820,9 @@
                     queue = queue.filter(c => normalize(c.category) === normalize(settings.category));
                 }
                 
-                // --- APLICANDO FILTRO DE TAG ---
+                // NOVA LÓGICA DE FILTRAGEM POR TAG
                 if (settings.tag !== 'All') {
-                    queue = queue.filter(c => c.tags && c.tags.includes(settings.tag));
+                    queue = queue.filter(c => (c.tags || []).includes(settings.tag));
                 }
 
                 if (settings.mode === 'new') {
@@ -834,8 +840,10 @@
                     queue = queue.sort(() => Math.random() - 0.5);
                 }
                 if (settings.mode !== 'cram') queue = queue.sort(() => Math.random() - 0.5);
+                
                 queue = queue.slice(0, settings.limit);
-                if (queue.length === 0) { alert("Nenhum card encontrado com esses filtros. Tente mudar a Tag ou o Modo de Estudo."); return; }
+                if (queue.length === 0) { alert("Nenhum card encontrado com esses filtros."); return; }
+                
                 setStudyQueue(queue);
                 setCustomStudyOpen(false);
                 setView("study");
@@ -882,7 +890,7 @@
                             <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
                             <Cpu size={24} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white" />
                         </div>
-                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO O L1 CACHE...</span>
+                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO O L1 CACHE v1.1 (TAGS)...</span>
                     </div>
                 );
             }
@@ -898,8 +906,8 @@
                 });
             }
 
-            // Mapeando todas as tags disponíveis no sistema global
-            const allAvailableTags = [...new Set(cards.flatMap(c => c.tags || []))].sort();
+            // Extrai todas as tags únicas do banco em tempo real
+            const allTags = [...new Set(cards.flatMap(c => c.tags || []))].sort();
 
             return (
                 <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200 font-sans selection:bg-purple-500/30">
@@ -925,10 +933,9 @@
                                 <header className="border-b border-slate-800 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
                                         <h2 className="text-3xl font-bold text-white mb-2">Painel de Controle</h2>
-                                        <div className="flex flex-wrap gap-4 md:gap-6 text-sm text-slate-400 font-mono">
+                                        <div className="flex gap-6 text-sm text-slate-400 font-mono">
                                             <div className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div> {cards.length} Cards (Live)</div>
                                             <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div> {Object.keys(reviews).length} Memorizados</div>
-                                            <div className="flex items-center gap-2 text-purple-400"><Tag size={14}/> {allAvailableTags.length} Tags Dinâmicas</div>
                                             {user && totalDue === 0 && <div className="flex items-center gap-2 text-emerald-400"><Check size={14}/> Tudo em dia!</div>}
                                         </div>
                                     </div>
@@ -941,13 +948,13 @@
                                     onClose={() => setCustomStudyOpen(false)} 
                                     onStart={startCustomStudy} 
                                     categories={[...new Set(cards.map(c => normalize(c.category)))]} 
-                                    availableTags={allAvailableTags}
+                                    tags={allTags} // Passa tags únicas pro Modal
                                 />
                             </div>
                         )}
                         {view === "study" && <StudySession initialQueue={studyQueue} user={user} reviews={reviews} setReviews={setReviews} userStats={userStats} setUserStats={setUserStats} onFinish={() => setView("decks")} />}
                         {view === "leaderboard" && <LeaderboardView />}
-                        {view === "admin" && isAdmin && <AdminPanel cards={cards} onExit={() => setView("decks")} availableTags={allAvailableTags} />}
+                        {view === "admin" && isAdmin && <AdminPanel cards={cards} allTags={allTags} onExit={() => setView("decks")} />}
                     </main>
                 </div>
             );
@@ -974,8 +981,8 @@
                     <div className="w-full max-w-md glass p-8 rounded-2xl shadow-2xl relative z-10 animate-slide-up">
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><Cpu size={32} /></div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.0</span></h1>
-                            <p className="text-slate-400 text-sm">Engine SM-2 para máxima retenção em ciência da computação.</p>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.1</span></h1>
+                            <p className="text-slate-400 text-sm">Engine SM-2 Real-time para máxima retenção em Ciência da Computação.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-3">
@@ -1034,7 +1041,7 @@
                     setLoading(false);
                 });
 
-                return () => unsub();
+                return () => unsub(); 
             }, []);
 
             return (
@@ -1103,15 +1110,16 @@
             );
         };
 
-        const AdminPanel = ({ cards, onExit, availableTags }) => {
+        // --- PAINEL ADMIN ATUALIZADO (TAGS DYNAMICS) ---
+        const AdminPanel = ({ cards, allTags, onExit }) => {
             const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
             const [tagInput, setTagInput] = React.useState('');
             const [editingId, setEditingId] = React.useState(null);
             
-            // Filtros do painel (Adicionado Filtro por Tag)
             const [filterCategory, setFilterCategory] = React.useState('Todos');
             const [filterLesson, setFilterLesson] = React.useState('Todos');
-            const [filterTag, setFilterTag] = React.useState('Todos');
+            const [filterSubcategory, setFilterSubcategory] = React.useState('Todos');
+            const [filterTag, setFilterTag] = React.useState('Todas'); // Filtro de Tag no Admin
             const [searchTerm, setSearchTerm] = React.useState('');
             
             const existingCategories = [...new Set(cards.map(c => normalize(c.category)))].filter(Boolean).sort();
@@ -1121,20 +1129,23 @@
             const filteredCards = cards.filter(c => {
                 const cCat = normalize(c.category);
                 const cLess = normalize(c.lesson || 'Conteúdo Geral');
+                const cSub = normalize(c.subcategory);
                 const cTags = c.tags || [];
 
                 const matchCategory = filterCategory === 'Todos' || cCat === filterCategory;
                 const matchLesson = filterLesson === 'Todos' || cLess === filterLesson;
-                const matchTag = filterTag === 'Todos' || cTags.includes(filterTag);
+                const matchSubcategory = filterSubcategory === 'Todos' || cSub === filterSubcategory;
+                const matchTag = filterTag === 'Todas' || cTags.includes(filterTag);
                 const matchSearch = searchTerm === '' || (c.front || '').toLowerCase().includes(searchTerm.toLowerCase());
                 
-                return matchCategory && matchLesson && matchTag && matchSearch;
+                return matchCategory && matchLesson && matchSubcategory && matchTag && matchSearch;
             });
 
+            // Adiciona tag via Enter ou Vírgula
             const handleAddTag = (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
-                    const newTag = tagInput.trim().toLowerCase().replace(/^#/, ''); // Remove # caso o user digite
+                    const newTag = tagInput.trim().toLowerCase();
                     if (newTag && !form.tags.includes(newTag)) {
                         setForm(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
                     }
@@ -1159,7 +1170,7 @@
                         category: normalize(form.category || 'Geral'),
                         lesson: normalize(form.lesson || 'Conteúdo Geral'),
                         subcategory: normalize(form.subcategory || 'Geral'),
-                        tags: form.tags // Salvando o array de tags
+                        tags: form.tags // Salva o array de tags
                     };
 
                     if (editingId) {
@@ -1179,7 +1190,7 @@
                     category: normalize(card.category),
                     lesson: normalize(card.lesson || 'Conteúdo Geral'),
                     subcategory: normalize(card.subcategory),
-                    tags: card.tags || []
+                    tags: card.tags || [] // Carrega as tags seguras
                 }); 
                 setEditingId(card.id); 
             };
@@ -1198,7 +1209,7 @@
                     </div>
                     <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden">
                         
-                        {/* LEFT COLUMN: FILTERS & LIST */}
+                        {/* SIDEBAR DE LISTAGEM */}
                         <div className="w-full md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-auto">
                             <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
                                 <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros de Busca</span></div>
@@ -1207,23 +1218,23 @@
                                         <option value="Todos">Todas Matérias</option>
                                         {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
-                                    <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
-                                        <option value="Todos">Todas Aulas</option>
-                                        {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
-                                    </select>
-                                    <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
-                                        <option value="Todos">Todas as Tags</option>
-                                        <option value="Untagged">-- Sem Tag --</option>
-                                        {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
+                                            <option value="Todos">Todas Aulas</option>
+                                            {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                        </select>
+                                        <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 transition-colors">
+                                            <option value="Todas">Qualquer Tag</option>
+                                            {allTags.map(t => <option key={t} value={t}>#{t}</option>)}
+                                        </select>
+                                    </div>
                                     <div className="relative">
-                                        <input type="text" placeholder="Buscar na pergunta..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"/>
+                                        <input type="text" placeholder="Buscar na frente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"/>
                                         <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
                                     </div>
                                 </div>
-                                <div className="text-xs text-slate-500 text-right font-mono">{filteredCards.length} nodes listados</div>
+                                <div className="text-xs text-slate-500 text-right font-mono">{filteredCards.length} nodes listados (Ao vivo)</div>
                             </div>
-                            
                             <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                                 {filteredCards.map(c => (
                                     <div key={c.id} onClick={() => handleEdit(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group ${editingId === c.id ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
@@ -1235,14 +1246,13 @@
                                                 </div>
                                                 <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
                                                 
-                                                {/* Exibição das pílulas de tag na listagem administrativa */}
+                                                {/* Exibição rápida das tags no card listado */}
                                                 {c.tags && c.tags.length > 0 && (
                                                     <div className="flex flex-wrap gap-1 mt-2">
-                                                        {c.tags.map(t => (
-                                                            <span key={t} className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[9px] uppercase border border-slate-700 flex items-center gap-1"><Tag size={8}/> {t}</span>
-                                                        ))}
+                                                        {c.tags.map(t => <span key={t} className="bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded text-[9px] border border-purple-500/30">#{t}</span>)}
                                                     </div>
                                                 )}
+
                                             </div>
                                         </div>
                                         <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1252,8 +1262,8 @@
                                 ))}
                             </div>
                         </div>
-                        
-                        {/* RIGHT COLUMN: EDITOR */}
+
+                        {/* FORMULÁRIO DE EDIÇÃO */}
                         <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0">
                              <form onSubmit={handleSave} className="space-y-4 bg-slate-900/20 p-2 rounded-xl">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1264,7 +1274,7 @@
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula (Lesson)</label>
-                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Aula 01" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
+                                        <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none transition-all font-mono text-sm" placeholder="Ex: Aula 01 - Introdução" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
                                         <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={l} value={l} />)}</datalist>
                                     </div>
                                     <div className="space-y-1">
@@ -1273,34 +1283,35 @@
                                         <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={sub} value={sub} />)}</datalist>
                                     </div>
                                 </div>
-
-                                {/* NOVO COMPONENTE: Gerenciador de Tags do Formulário */}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 flex items-center gap-1"><Tag size={12}/> Tags Dinâmicas (Digite e pressione Enter ou Vírgula)</label>
-                                    <div className="bg-slate-800 p-2 rounded-lg border border-slate-700 flex flex-wrap gap-2 focus-within:border-blue-500 transition-colors min-h-[48px] items-center">
-                                        {form.tags.map(tag => (
-                                            <span key={tag} className="bg-blue-900/50 text-blue-400 border border-blue-500/30 px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
-                                                {tag} 
-                                                <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-400 transition-colors"><X size={12}/></button>
+                                
+                                {/* INPUT DINÂMICO DE TAGS */}
+                                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                                    <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Indexação / Tags (Pressione Enter)</label>
+                                    
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {form.tags.map(t => (
+                                            <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
+                                                #{t} <button type="button" onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
                                             </span>
                                         ))}
-                                        <input
-                                            type="text"
-                                            className="bg-transparent outline-none text-white text-sm flex-1 min-w-[150px] font-mono px-2"
-                                            placeholder={form.tags.length === 0 ? "Ex: prova1, algoritmos, urgente" : "Adicionar tag..."}
-                                            value={tagInput}
-                                            onChange={e => setTagInput(e.target.value)}
-                                            onKeyDown={handleAddTag}
-                                        />
                                     </div>
-                                    <p className="text-[10px] text-slate-500 ml-1">As tags permitem cruzamento de assuntos. Ex: Adicione "prova1" a vários conteúdos isolados para gerar uma sessão "Cram" pré-prova depois.</p>
+                                    <input 
+                                        type="text" 
+                                        className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none transition-all font-mono text-sm placeholder:text-slate-600" 
+                                        placeholder="Digite uma tag e pressione Enter (ex: algoritmos)" 
+                                        value={tagInput} 
+                                        onChange={e => setTagInput(e.target.value)} 
+                                        onKeyDown={handleAddTag}
+                                        list="tag-suggestions"
+                                    />
+                                    <datalist id="tag-suggestions">{allTags.map((t, i) => <option key={i} value={t} />)}</datalist>
                                 </div>
 
                                 <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Input: Pergunta (Frente)</label><RichTextEditor value={form.front} onChange={(val) => setForm(prev => ({...prev, front: val}))} /></div>
                                 <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Output: Resposta (Verso)</label><RichTextEditor value={form.back} onChange={(val) => setForm(prev => ({...prev, back: val}))} /></div>
                                 
-                                <div className="flex gap-3 pt-4 sticky bottom-0 bg-slate-900/90 p-4 border-t border-slate-700 -mx-2 -mb-2 rounded-b-xl backdrop-blur">
-                                    {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] }); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"><RotateCcw size={16}/> Cancelar</button>)}
+                                <div className="flex gap-3 pt-4 sticky bottom-0 bg-slate-900/90 p-4 border-t border-slate-700 -mx-2 -mb-2 rounded-b-xl backdrop-blur z-20">
+                                    {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm(prev => ({ ...prev, front: '', back: '', tags: [] })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"><RotateCcw size={16}/> Cancelar</button>)}
                                     <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex justify-center gap-2 items-center transform hover:scale-[1.01] text-sm md:text-base">{editingId ? <><Save size={18} /> Salvar Alterações</> : <><Plus size={18} /> Inserir no Banco de Dados</>}</button>
                                 </div>
                             </form>
