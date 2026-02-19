@@ -110,10 +110,10 @@
             }
         }
 
-        // --- ENGINE ANKI (SM-2) ---
-        const LEARNING_STEPS = [1, 10]; 
-        const GRADUATING_INTERVAL = 1; 
-        const EASY_INTERVAL = 4; 
+        // --- ENGINE ANKI (SM-2 Exato) ---
+        const LEARNING_STEPS = [1, 10]; // em minutos
+        const GRADUATING_INTERVAL = 1; // dias
+        const EASY_INTERVAL = 4; // dias
         const STARTING_EASE = 2.5; 
 
         const calculateNextReview = (rating, currentData) => {
@@ -122,88 +122,112 @@
             let state = currentData?.state || 'new'; 
             let step = currentData?.step || 0; 
 
-            let newInterval = 0;
+            let newInterval = interval;
             let newEase = ease;
             let newState = state;
             let newStep = step;
             let dueMinutes = 0;
 
+            // O passo para relearning em lapsos no Anki geralmente é de apenas 10 minutos.
+            const STEPS = (state === 'relearning') ? [10] : LEARNING_STEPS;
+
             if (state === 'new' || state === 'learning' || state === 'relearning') {
-                if (rating === 1) { 
+                if (rating === 1) { // Errei (Again)
                     newStep = 0;
-                    dueMinutes = LEARNING_STEPS[0];
+                    dueMinutes = STEPS[0];
                     newState = state === 'new' ? 'learning' : state; 
                 } 
-                else if (rating === 2) { 
-                    dueMinutes = Math.floor((LEARNING_STEPS[step] || LEARNING_STEPS[0]) * 1.5);
+                else if (rating === 2) { // Difícil (Hard)
+                    dueMinutes = Math.floor((STEPS[step] || STEPS[0]) * 1.5);
                     if (dueMinutes < 1) dueMinutes = 1;
                     newState = state === 'new' ? 'learning' : state;
                 } 
-                else if (rating === 3) { 
-                    if (step < LEARNING_STEPS.length - 1) {
+                else if (rating === 3) { // Bom (Good)
+                    if (step < STEPS.length - 1) {
                         newStep = step + 1;
-                        dueMinutes = LEARNING_STEPS[newStep];
-                        newState = 'learning';
+                        dueMinutes = STEPS[newStep];
+                        newState = state === 'new' ? 'learning' : state;
                     } else {
-                        newInterval = GRADUATING_INTERVAL; 
+                        // Graduou!
+                        if (state === 'relearning') {
+                            newInterval = Math.max(1, interval); // Restaura o intervalo preservado pós-lapso
+                        } else {
+                            newInterval = GRADUATING_INTERVAL; 
+                        }
                         newState = 'review';
                         newStep = 0;
                     }
                 } 
-                else if (rating === 4) { 
-                    newInterval = EASY_INTERVAL; 
+                else if (rating === 4) { // Fácil (Easy)
+                    if (state === 'relearning') {
+                        newInterval = Math.max(1, interval + 1);
+                    } else {
+                        newInterval = EASY_INTERVAL; 
+                    }
                     newState = 'review';
                     newStep = 0;
                 }
             } 
             else if (state === 'review') {
-                if (rating === 1) { 
+                if (rating === 1) { // Errei (Lapse/Again)
                     newEase = Math.max(1.3, ease - 0.20);
-                    newInterval = 1; 
+                    // O novo intervalo cai para 20% do atual (Anki Lapse modifier), mas guardamos para quando graduar
+                    newInterval = Math.max(1, Math.floor(interval * 0.2)); 
                     newState = 'relearning';
                     newStep = 0;
-                    dueMinutes = 10; 
+                    dueMinutes = STEPS[0]; 
                 } 
-                else if (rating === 2) { 
+                else if (rating === 2) { // Difícil (Hard)
                     newEase = Math.max(1.3, ease - 0.15);
-                    newInterval = Math.floor(interval * 1.2);
+                    newInterval = Math.max(interval + 1, Math.floor(interval * 1.2));
                     newState = 'review';
                 } 
-                else if (rating === 3) { 
-                    newInterval = Math.floor(interval * ease);
+                else if (rating === 3) { // Bom (Good)
+                    newInterval = Math.max(interval + 1, Math.floor(interval * ease));
                     newState = 'review';
                 } 
-                else if (rating === 4) { 
+                else if (rating === 4) { // Fácil (Easy)
                     newEase = ease + 0.15;
-                    newInterval = Math.floor(interval * ease * 1.3);
+                    newInterval = Math.max(interval + 1, Math.floor(interval * ease * 1.3));
                     newState = 'review';
                 }
             }
 
             const now = new Date();
-            let dueDate;
+            let dueDate = new Date();
             let requeue = false;
 
             if (newState === 'learning' || newState === 'relearning') {
+                // Time scheduling exato (precisão em minutos)
                 dueDate = new Date(now.getTime() + dueMinutes * 60000);
-                newInterval = dueMinutes; 
                 requeue = true; 
             } else {
-                dueDate = new Date(now.getTime() + (Math.max(1, newInterval) * 24 * 60 * 60 * 1000));
+                // Day scheduling (Início da meia noite para avaliações futuras - Padrão Anki)
+                dueDate.setDate(dueDate.getDate() + newInterval);
+                dueDate.setHours(0, 0, 0, 0);
                 requeue = false; 
             }
 
-            return { interval: newInterval, ease: newEase, state: newState, step: newStep, dueDate: dueDate, requeue: requeue };
+            return { 
+                interval: newInterval, 
+                ease: newEase, 
+                state: newState, 
+                step: newStep, 
+                dueDate: dueDate, 
+                requeue: requeue,
+                dueMinutes: (newState === 'learning' || newState === 'relearning') ? dueMinutes : 0
+            };
         };
 
-        const formatTimeLabel = (minutes, isReviewState) => {
-            if (isReviewState) {
-                if (minutes === 1) return '1d';
-                return `${Math.round(minutes)}d`;
+        const formatTimeLabel = (result) => {
+            if (result.state === 'review') {
+                if (result.interval === 1) return '1d';
+                if (result.interval > 30) return `${Math.round(result.interval/30)}m`; // meses aprox
+                return `${result.interval}d`;
             }
-            if (minutes < 60) return `${Math.round(minutes)}m`;
-            if (minutes < 1440) return `${Math.round(minutes/60)}h`;
-            return `${Math.round(minutes/1440)}d`;
+            if (result.dueMinutes < 60) return `${Math.round(result.dueMinutes)}m`;
+            if (result.dueMinutes < 1440) return `${Math.round(result.dueMinutes/60)}h`;
+            return `${Math.round(result.dueMinutes/1440)}d`;
         };
 
         const formatDuration = (ms) => {
@@ -388,28 +412,32 @@
             const handleRate = async (rating) => {
                 let timeSpent = Date.now() - cardStartTime;
                 
-                // Correção Anki Engine: Trava de tempo. Limita a 60 segundos (60000ms) 
+                // Trava Anki Engine: Limita o max time contado
                 if (timeSpent > 60000) timeSpent = 60000; 
 
                 setCardStartTime(Date.now());
-                const result = calculateNextReview(rating, currentData);
+                const result = options[rating];
 
-                // Requeue logic for learning cards
+                // Lógica Estrita de Requeue Anki: 
+                // Apenas exibe novamente na mesma sessão se for um aprendizado curto (ex: 1m).
+                // Se for 10m, o Anki permite que a sessão encerre.
                 if (result.requeue) {
-                    const requeuedCard = {
-                        ...card,
-                        tempReviewData: result 
-                    };
-                    setQueue(prev => [...prev, requeuedCard]);
-                    
-                    const isReview = result.state === 'review';
-                    const timeLabel = formatTimeLabel(result.interval, isReview);
-                    setRequeueNotice(`Reagendado: ${timeLabel}`);
-                    setTimeout(() => setRequeueNotice(null), 3000);
+                    if (result.dueMinutes < 5) {
+                        const requeuedCard = {
+                            ...card,
+                            tempReviewData: result 
+                        };
+                        setQueue(prev => [...prev, requeuedCard]);
+                        setRequeueNotice(`Retorno rápido em ${formatTimeLabel(result)}`);
+                    } else {
+                        // Card irá aguardar na DB. Sessão avança livremente.
+                        setRequeueNotice(`Em aprendizado. Libera em: ${formatTimeLabel(result)}`);
+                    }
+                    setTimeout(() => setRequeueNotice(null), 2500);
                 }
 
                 if (user && userStats) {
-                    // Atualiza Reviews (Progresso individual do card)
+                    // Salva estado persistente (Firestore & memória)
                     const newReviews = { ...reviews, [card.id]: { ...result, dueDate: { toDate: () => result.dueDate }, lastReviewed: { toDate: () => new Date() } } };
                     setReviews(newReviews);
                     
@@ -417,7 +445,7 @@
                         await setDoc(doc(db, `users/${user.uid}/reviews/${card.id}`), { ...result, lastReviewed: serverTimestamp() });
                     } catch(e) { console.error("Erro ao salvar card:", e); }
 
-                    // Atualiza Estatísticas Globais do Usuário
+                    // Atualiza stats e leaderboard globais
                     const isCorrect = rating > 1;
                     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -429,7 +457,7 @@
                         updatedStats.correctAnswers = (updatedStats.correctAnswers || 0) + 1;
                         updatedStats.currentStreak = (updatedStats.currentStreak || 0) + 1;
                     } else {
-                        updatedStats.currentStreak = 0; // Quebra o streak se errar
+                        updatedStats.currentStreak = 0;
                     }
                     
                     updatedStats.retention = (updatedStats.correctAnswers / updatedStats.cardsSeen) * 100;
@@ -461,7 +489,7 @@
                 if(s === 'new') return <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-blue-500/30">Novo</span>
                 if(s === 'learning') return <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-orange-500/30">Aprendendo</span>
                 if(s === 'review') return <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-emerald-500/30">Revisão</span>
-                if(s === 'relearning') return <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-red-500/30">Lapse</span>
+                if(s === 'relearning') return <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-red-500/30">Reaprender</span>
                 return null;
             }
 
@@ -515,22 +543,22 @@
                         <button onClick={() => handleRate(1)} className="p-4 rounded-2xl bg-slate-900 border border-red-900/30 text-red-400 hover:bg-red-900/20 hover:border-red-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
                             <span className="absolute top-2 right-2 text-[9px] bg-red-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 1</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-red-300">Errei</span>
-                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[1].interval, options[1].state === 'review')}</span>
+                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[1])}</span>
                         </button>
                         <button onClick={() => handleRate(2)} className="p-4 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-500 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
                             <span className="absolute top-2 right-2 text-[9px] bg-slate-700 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 2</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-white">Difícil</span>
-                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[2].interval, options[2].state === 'review')}</span>
+                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[2])}</span>
                         </button>
                         <button onClick={() => handleRate(3)} className="p-4 rounded-2xl bg-slate-900 border border-blue-900/30 text-blue-400 hover:bg-blue-900/20 hover:border-blue-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
                             <span className="absolute top-2 right-2 text-[9px] bg-blue-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 3</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-blue-300">Bom</span>
-                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[3].interval, options[3].state === 'review')}</span>
+                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[3])}</span>
                         </button>
                         <button onClick={() => handleRate(4)} className="p-4 rounded-2xl bg-slate-900 border border-emerald-900/30 text-emerald-400 hover:bg-emerald-900/20 hover:border-emerald-500/50 flex flex-col items-center transition-all hover:scale-105 active:scale-95 group relative">
                             <span className="absolute top-2 right-2 text-[9px] bg-emerald-900/50 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Tecla 4</span>
                             <span className="font-bold text-sm mb-1 group-hover:text-emerald-300">Fácil</span>
-                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[4].interval, options[4].state === 'review')}</span>
+                            <span className="text-[10px] opacity-60 font-mono">{formatTimeLabel(options[4])}</span>
                         </button>
                     </div>
                 </div>
@@ -607,8 +635,8 @@
                     <div className="grid grid-cols-12 gap-2 p-3 md:p-4 border-b border-slate-700 bg-slate-900/90 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                         <div className="col-span-6 md:col-span-6 pl-4 md:pl-6">Baralho (Matéria / Aula / Tópico)</div>
                         <div className="col-span-2 md:col-span-2 text-center text-blue-400" title="Cards Novos">Novo</div>
-                        <div className="col-span-2 md:col-span-2 text-center text-orange-400" title="Cards em Aprendizado">Aprender</div>
-                        <div className="col-span-2 md:col-span-2 text-center text-emerald-400" title="Cards para Revisão">Revisar</div>
+                        <div className="col-span-2 md:col-span-2 text-center text-orange-400" title="Cards em Aprendizado que vencem hoje">Aprender</div>
+                        <div className="col-span-2 md:col-span-2 text-center text-emerald-400" title="Cards para Revisão que vencem hoje">Revisar</div>
                     </div>
                     <div className="divide-y divide-slate-800/80">
                         {Object.keys(structure).sort().map(cat => (
@@ -667,14 +695,12 @@
             const loadUserData = async (currentUser) => {
                 await loadPublicCards();
                 try {
-                    // Carrega Reviews Individuais (SM-2 data) da conta atual (Isolamento de Estado)
                     const q = query(collection(db, `users/${currentUser.uid}/reviews`));
                     const snapshot = await getDocs(q);
                     const userReviews = {};
                     snapshot.forEach(doc => { userReviews[doc.id] = doc.data(); });
                     setReviews(userReviews);
                     
-                    // Carrega Estatísticas para o Leaderboard / User Profile
                     const statsRef = doc(db, 'leaderboard', currentUser.uid);
                     const statsSnap = await getDoc(statsRef);
                     
@@ -696,41 +722,44 @@
                 } catch (error) { console.error("Erro progresso:", error); setReviews({}); }
             };
 
-            // Processador principal da estrutura e cálculo de Status da sessão atual
+            // Processador principal (SM-2 Daily View Accuracy)
             const getDecksStructure = () => {
                 const structure = {};
                 const now = new Date();
+                
+                // No Anki, os contadores do Dashboard (Novos, Aprender, Revisar) 
+                // mostram TUDO que vence "até o fim do dia". 
+                const endOfToday = new Date();
+                endOfToday.setHours(23, 59, 59, 999);
 
                 cards.forEach(card => {
                     const cat = normalize(card.category || "Sem Categoria");
                     const lesson = normalize(card.lesson || "Conteúdo Geral");
                     const sub = normalize(card.subcategory || "Geral");
 
-                    // Inicializa os objetos caso não existam
                     if (!structure[cat]) structure[cat] = { stats: { n:0, l:0, r:0 }, lessons: {} };
                     if (!structure[cat].lessons[lesson]) structure[cat].lessons[lesson] = { stats: { n:0, l:0, r:0 }, subcategories: {} };
                     if (!structure[cat].lessons[lesson].subcategories[sub]) structure[cat].lessons[lesson].subcategories[sub] = { stats: { n:0, l:0, r:0 }, cards: [] };
 
-                    // Cálculo da Situação com base no usuário logado
                     let isNew = false, isLearn = false, isReview = false;
                     const rev = reviews[card.id];
 
                     if (!rev) {
-                        isNew = true; // Nenhum review = Novo
+                        isNew = true; // Nenhum review = Novo absoluto
                     } else {
                         let dueDate = rev.dueDate;
                         if (dueDate && typeof dueDate.toDate === 'function') dueDate = dueDate.toDate();
                         else dueDate = new Date(dueDate || now);
 
-                        // O Anki apenas exibe para aprender/revisar se o dueDate <= agora
-                        if (dueDate <= now) {
+                        // O SEGREDO DO ANKI: O card só aparece nos contadores diários se ele 
+                        // estiver vencido OU vencer ainda hoje! (dueDate <= endOfToday)
+                        if (dueDate <= endOfToday) {
                             if (rev.state === 'learning' || rev.state === 'relearning') isLearn = true;
                             else if (rev.state === 'review') isReview = true;
                             else if (rev.state === 'new') isNew = true;
                         }
                     }
 
-                    // Incrementa os contadores de forma recursiva (Bottom-up)
                     if (isNew) {
                         structure[cat].stats.n++;
                         structure[cat].lessons[lesson].stats.n++;
@@ -790,23 +819,27 @@
                 if (user) {
                     queue = queue.filter(card => {
                         const review = reviews[card.id];
-                        if (!review) return true; // Card Novo
+                        if (!review) return true; // Card Novo vai pra fila
+                        
                         let dueDate;
                         if (review.dueDate && typeof review.dueDate.toDate === 'function') dueDate = review.dueDate.toDate();
                         else dueDate = new Date(review.dueDate || now);
-                        return dueDate <= now; // Card Vencido (Para aprender ou revisar)
+                        
+                        // Rigidez do SM-2: Ele só deixa você estudar o card de "aprender" 
+                        // se o exato minuto já tiver batido (<= now). 
+                        return dueDate <= now; 
                     });
                 } else {
                     queue = queue.sort(() => Math.random() - 0.5);
                 }
                 
                 if (queue.length === 0) {
-                    if (confirm("Você está em dia com este tópico! Deseja fazer uma revisão extra de fixação (Modo Cram)?")) {
+                    if (confirm("Você já concluiu todos os cards vencidos até este momento exato.\n\nOs cards em aprendizado que retornam daqui a pouco estarão aguardando o tempo acabar. \n\nDeseja forçar uma revisão extra de fixação agora (Modo Cram)?")) {
                         startCustomStudy({ category: category || 'All', mode: 'cram', limit: 20 });
                     }
                     return;
                 }
-                setStudyQueue(queue);
+                setStudyQueue(queue.sort(() => Math.random() - 0.5));
                 setView("study");
             };
 
@@ -826,7 +859,6 @@
 
             const structure = getDecksStructure();
             
-            // Calculo da métrica total de retenção individual
             let totalDue = 0;
             if(user) {
                 Object.values(structure).forEach(cat => {
@@ -901,7 +933,7 @@
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><Cpu size={32} /></div>
                             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">2.2</span></h1>
-                            <p className="text-slate-400 text-sm">Engine SM-2 para retenção máxima em Ciência da Computação para alunos de elite.</p>
+                            <p className="text-slate-400 text-sm">Engine SM-2 para máxima retenção de ciência da computação para alunos de elite.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-3">
