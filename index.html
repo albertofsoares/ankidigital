@@ -311,12 +311,11 @@
             );
         };
 
-        // --- ATUALIZADO: Custom Study Modal suportando Tags Dinâmicas ---
         const CustomStudyModal = ({ isOpen, onClose, onStart, categories, tags }) => {
             const [mode, setMode] = React.useState('due');
             const [limit, setLimit] = React.useState(20);
             const [selectedCategory, setSelectedCategory] = React.useState('All');
-            const [selectedTag, setSelectedTag] = React.useState('All'); // Novo estado de Tag
+            const [selectedTag, setSelectedTag] = React.useState('All'); 
             
             if (!isOpen) return null;
             return (
@@ -820,7 +819,6 @@
                     queue = queue.filter(c => normalize(c.category) === normalize(settings.category));
                 }
                 
-                // NOVA LÓGICA DE FILTRAGEM POR TAG
                 if (settings.tag !== 'All') {
                     queue = queue.filter(c => (c.tags || []).includes(settings.tag));
                 }
@@ -890,7 +888,7 @@
                             <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
                             <Cpu size={24} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white" />
                         </div>
-                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO O L1 CACHE v1.1 (TAGS)...</span>
+                        <span className="font-mono text-sm tracking-[0.2em] mt-6 text-blue-400">INICIALIZANDO O L1 CACHE v1.2 (STRICT FILTERS)...</span>
                     </div>
                 );
             }
@@ -1110,38 +1108,59 @@
             );
         };
 
-        // --- PAINEL ADMIN ATUALIZADO (TAGS DYNAMICS) ---
+        // --- PAINEL ADMIN ATUALIZADO (STATE CONSOLIDADO E CASCADING DROPDOWNS) ---
         const AdminPanel = ({ cards, allTags, onExit }) => {
             const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
             const [tagInput, setTagInput] = React.useState('');
             const [editingId, setEditingId] = React.useState(null);
             
-            const [filterCategory, setFilterCategory] = React.useState('Todos');
-            const [filterLesson, setFilterLesson] = React.useState('Todos');
-            const [filterSubcategory, setFilterSubcategory] = React.useState('Todos');
-            const [filterTag, setFilterTag] = React.useState('Todas'); // Filtro de Tag no Admin
-            const [searchTerm, setSearchTerm] = React.useState('');
+            // ESTADO CONSOLIDADO: Previne dessincronização durante re-renders causados por saves.
+            const [filters, setFilters] = React.useState({ category: 'Todos', lesson: 'Todos', tag: 'Todas', search: '' });
             
+            // CASCADING DROPDOWNS: Lógica dependente melhora a UX e previne combinações impossíveis.
             const existingCategories = [...new Set(cards.map(c => normalize(c.category)))].filter(Boolean).sort();
-            const existingLessons = [...new Set(cards.map(c => normalize(c.lesson)))].filter(Boolean).sort();
             const existingSubcategories = [...new Set(cards.map(c => normalize(c.subcategory)))].filter(Boolean).sort();
             
+            const availableLessons = [...new Set(cards
+                .filter(c => filters.category === 'Todos' || normalize(c.category).toLowerCase() === filters.category.toLowerCase())
+                .map(c => normalize(c.lesson || 'Conteúdo Geral'))
+            )].filter(Boolean).sort();
+
+            const availableTagsContext = [...new Set(cards
+                .filter(c => {
+                    const matchCat = filters.category === 'Todos' || normalize(c.category).toLowerCase() === filters.category.toLowerCase();
+                    const matchLess = filters.lesson === 'Todos' || normalize(c.lesson || 'Conteúdo Geral').toLowerCase() === filters.lesson.toLowerCase();
+                    return matchCat && matchLess;
+                })
+                .flatMap(c => c.tags || [])
+            )].sort();
+            
+            // LÓGICA DE FILTRAGEM ESTRITA E IMUNE A CASE SENSITIVITY
             const filteredCards = cards.filter(c => {
                 const cCat = normalize(c.category);
                 const cLess = normalize(c.lesson || 'Conteúdo Geral');
-                const cSub = normalize(c.subcategory);
                 const cTags = c.tags || [];
 
-                const matchCategory = filterCategory === 'Todos' || cCat === filterCategory;
-                const matchLesson = filterLesson === 'Todos' || cLess === filterLesson;
-                const matchSubcategory = filterSubcategory === 'Todos' || cSub === filterSubcategory;
-                const matchTag = filterTag === 'Todas' || cTags.includes(filterTag);
-                const matchSearch = searchTerm === '' || (c.front || '').toLowerCase().includes(searchTerm.toLowerCase());
+                if (filters.category !== 'Todos' && cCat.toLowerCase() !== filters.category.toLowerCase()) return false;
+                if (filters.lesson !== 'Todos' && cLess.toLowerCase() !== filters.lesson.toLowerCase()) return false;
+                if (filters.tag !== 'Todas' && !cTags.some(t => t.toLowerCase() === filters.tag.toLowerCase())) return false;
                 
-                return matchCategory && matchLesson && matchSubcategory && matchTag && matchSearch;
+                if (filters.search !== '') {
+                    const searchLower = filters.search.toLowerCase();
+                    // Limpeza de tags HTML para busca exata de conteúdo
+                    const frontText = (c.front || '').replace(/<[^>]*>?/gm, '').toLowerCase(); 
+                    const backText = (c.back || '').replace(/<[^>]*>?/gm, '').toLowerCase();
+                    if (!frontText.includes(searchLower) && !backText.includes(searchLower)) return false;
+                }
+                return true;
             });
 
-            // Adiciona tag via Enter ou Vírgula
+            // Handlers inteligentes: Resetam filtros filhos quando o pai muda
+            const handleCategoryChange = (e) => setFilters(prev => ({ ...prev, category: e.target.value, lesson: 'Todos', tag: 'Todas' }));
+            const handleLessonChange = (e) => setFilters(prev => ({ ...prev, lesson: e.target.value, tag: 'Todas' }));
+            const handleTagChange = (e) => setFilters(prev => ({ ...prev, tag: e.target.value }));
+            const handleSearchChange = (e) => setFilters(prev => ({ ...prev, search: e.target.value }));
+
             const handleAddTag = (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
@@ -1170,7 +1189,7 @@
                         category: normalize(form.category || 'Geral'),
                         lesson: normalize(form.lesson || 'Conteúdo Geral'),
                         subcategory: normalize(form.subcategory || 'Geral'),
-                        tags: form.tags // Salva o array de tags
+                        tags: form.tags 
                     };
 
                     if (editingId) {
@@ -1179,6 +1198,7 @@
                     } else {
                         await addDoc(collection(db, "cards"), { ...dataToSave, createdAt: serverTimestamp() });
                     }
+                    // Limpamos apenas o payload do form. Os select filters não são afetados.
                     setForm(prev => ({ ...prev, front: '', back: '', tags: [] })); 
                 } catch (e) { alert("Erro ao salvar: " + e.message); }
             };
@@ -1190,7 +1210,7 @@
                     category: normalize(card.category),
                     lesson: normalize(card.lesson || 'Conteúdo Geral'),
                     subcategory: normalize(card.subcategory),
-                    tags: card.tags || [] // Carrega as tags seguras
+                    tags: card.tags || [] 
                 }); 
                 setEditingId(card.id); 
             };
@@ -1212,24 +1232,24 @@
                         {/* SIDEBAR DE LISTAGEM */}
                         <div className="w-full md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-auto">
                             <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
-                                <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros de Busca</span></div>
+                                <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros de Busca (Cascata)</span></div>
                                 <div className="grid grid-cols-1 gap-2">
-                                    <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
+                                    <select value={filters.category} onChange={handleCategoryChange} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
                                         <option value="Todos">Todas Matérias</option>
                                         {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
+                                        <select value={filters.lesson} onChange={handleLessonChange} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 transition-colors">
                                             <option value="Todos">Todas Aulas</option>
-                                            {existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                            {availableLessons.map(l => <option key={l} value={l}>{l}</option>)}
                                         </select>
-                                        <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 transition-colors">
+                                        <select value={filters.tag} onChange={handleTagChange} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 transition-colors">
                                             <option value="Todas">Qualquer Tag</option>
-                                            {allTags.map(t => <option key={t} value={t}>#{t}</option>)}
+                                            {availableTagsContext.map(t => <option key={t} value={t}>#{t}</option>)}
                                         </select>
                                     </div>
                                     <div className="relative">
-                                        <input type="text" placeholder="Buscar na frente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"/>
+                                        <input type="text" placeholder="Buscar na frente ou verso..." value={filters.search} onChange={handleSearchChange} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"/>
                                         <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
                                     </div>
                                 </div>
