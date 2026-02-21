@@ -116,8 +116,7 @@
         // NORMALIZAÇÃO AGRESSIVA: Evita inconsistências de nomenclatura no NoSQL
         const normalize = (val) => String(val || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
-        // --- CORREÇÃO 4: MOTOR DE ÁUDIO SINTÉTICO (SFX) ---
-        // Cria sons na hora usando matemática pura. Otimizado para não travar a UI.
+        // --- MOTOR DE ÁUDIO SINTÉTICO (SFX) ---
         const AudioEngine = (function() {
             let audioCtx = null;
             
@@ -149,7 +148,7 @@
                     osc.start(now);
                     osc.stop(now + 0.05);
                 } 
-                else if (type === 'again') { // Rating 1: Som grave/cerrado
+                else if (type === 'again') { 
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(150, now);
                     osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
@@ -158,7 +157,7 @@
                     osc.start(now);
                     osc.stop(now + 0.2);
                 }
-                else if (type === 'hard') { // Rating 2: Som neutro
+                else if (type === 'hard') { 
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(250, now);
                     gainNode.gain.setValueAtTime(0.2, now);
@@ -166,7 +165,7 @@
                     osc.start(now);
                     osc.stop(now + 0.15);
                 }
-                else if (type === 'good') { // Rating 3: Som agudo/sucesso
+                else if (type === 'good') { 
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(400, now);
                     osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
@@ -175,7 +174,7 @@
                     osc.start(now);
                     osc.stop(now + 0.15);
                 }
-                else if (type === 'easy') { // Rating 4: Arpejo/Moeda (Dopamina pura)
+                else if (type === 'easy') { 
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(500, now);
                     osc.frequency.setValueAtTime(650, now + 0.08);
@@ -207,11 +206,28 @@
             }
         }
 
-        // --- ENGINE ANKI (SM-2 Exato) ---
-        const LEARNING_STEPS = [1, 10]; // em minutos
+        // ============================================================================
+        // ENGINE ANKI OTIMIZADO PARA MEMÓRIA DE CURTO PRAZO (FSRS Lite / Custom SM-2)
+        // ============================================================================
+        
+        // Passos: 1m, 10m, 60m. O passo de 60m é VITAL para consolidar a memória recente 
+        // em pessoas com fadiga mental ou sob medicação pesada antes de passar para dias.
+        const LEARNING_STEPS = [1, 10, 60]; 
         const GRADUATING_INTERVAL = 1; // dias
         const EASY_INTERVAL = 4; // dias
         const STARTING_EASE = 2.5; 
+        const MIN_EASE = 1.3;
+        const MAX_INTERVAL = 3650; // Teto de 10 anos (impede distâncias muito absurdas)
+
+        // Função Fuzz: Introduz ruído matemático. Impede que "blocos" de cartões estudados 
+        // no mesmo dia sempre vençam no mesmo dia meses depois, quebrando a carga de fadiga.
+        const applyFuzz = (interval) => {
+            if (interval < 2) return interval; // Não faz fuzzing em intervalos de 1 dia
+            const fuzzRange = Math.max(1, Math.round(interval * 0.05)); // 5% de variação
+            // Math.random() retorna entre 0 e 1.
+            const fuzz = Math.floor(Math.random() * (fuzzRange * 2 + 1)) - fuzzRange;
+            return Math.min(MAX_INTERVAL, Math.max(interval + fuzz, interval)); 
+        };
 
         const calculateNextReview = (rating, currentData) => {
             let interval = Number(currentData?.interval) || 0; 
@@ -229,25 +245,27 @@
             let newStep = step;
             let dueMinutes = 0;
 
-            const STEPS = (state === 'relearning') ? [10] : LEARNING_STEPS;
+            const STEPS = (state === 'relearning') ? [10, 60] : LEARNING_STEPS; // Reaprender exige a ponte de 60m
 
             if (state === 'new' || state === 'learning' || state === 'relearning') {
-                if (rating === 1) { 
+                if (rating === 1) { // Errou (Again)
                     newStep = 0;
                     dueMinutes = STEPS[0] || 1;
                     newState = state === 'new' ? 'learning' : state; 
                 } 
-                else if (rating === 2) { 
+                else if (rating === 2) { // Difícil (Hard)
+                    // Refaz o mesmo passo ou dá um pequeno delay
                     dueMinutes = Math.floor((STEPS[step] || STEPS[0] || 1) * 1.5);
                     if (dueMinutes < 1) dueMinutes = 1;
                     newState = state === 'new' ? 'learning' : state;
                 } 
-                else if (rating === 3) { 
+                else if (rating === 3) { // Bom (Good)
                     if (step < STEPS.length - 1) {
                         newStep = step + 1;
-                        dueMinutes = STEPS[newStep] || 10;
+                        dueMinutes = STEPS[newStep];
                         newState = state === 'new' ? 'learning' : state;
                     } else {
+                        // Graduou!
                         if (state === 'relearning') {
                             newInterval = Math.max(1, interval); 
                         } else {
@@ -257,7 +275,7 @@
                         newStep = 0;
                     }
                 } 
-                else if (rating === 4) { 
+                else if (rating === 4) { // Fácil (Easy)
                     if (state === 'relearning') {
                         newInterval = Math.max(1, interval + 1);
                     } else {
@@ -268,29 +286,34 @@
                 }
             } 
             else if (state === 'review') {
-                if (rating === 1) { 
-                    newEase = Math.max(1.3, ease - 0.20);
-                    newInterval = Math.max(1, Math.floor(interval * 0.2)); 
+                if (rating === 1) { // Errou um card antigo
+                    // Humanizado: Queda de ease menor (0.15) e retém 35% do intervalo (não cai pra 20% do zero)
+                    newEase = Math.max(MIN_EASE, ease - 0.15);
+                    newInterval = Math.max(1, Math.floor(interval * 0.35)); 
                     newState = 'relearning';
                     newStep = 0;
-                    dueMinutes = 10; 
+                    dueMinutes = 10; // Volta para os steps de reaprendizado
                 } 
-                else if (rating === 2) { 
-                    newEase = Math.max(1.3, ease - 0.15);
-                    newInterval = Math.max(interval + 1, Math.floor(interval * 1.2));
+                else if (rating === 2) { // Lembrou com dificuldade
+                    // Ease cai um pouco, mas o intervalo aumenta minimamente (1.2x) + Fuzz
+                    newEase = Math.max(MIN_EASE, ease - 0.15);
+                    newInterval = applyFuzz(Math.max(interval + 1, Math.floor(interval * 1.2)));
                     newState = 'review';
                 } 
-                else if (rating === 3) { 
-                    newInterval = Math.max(interval + 1, Math.floor(interval * ease));
+                else if (rating === 3) { // Lembrou bem
+                    // Mantém Ease, aplica multiplicador normal + Fuzz
+                    newInterval = applyFuzz(Math.max(interval + 1, Math.floor(interval * ease)));
                     newState = 'review';
                 } 
-                else if (rating === 4) { 
+                else if (rating === 4) { // Achou muito fácil
+                    // Aumenta facilidade, aplica bônus extra no intervalo + Fuzz
                     newEase = ease + 0.15;
-                    newInterval = Math.max(interval + 1, Math.floor(interval * ease * 1.3));
+                    newInterval = applyFuzz(Math.max(interval + 1, Math.floor(interval * ease * 1.3)));
                     newState = 'review';
                 }
             }
 
+            // Cálculo da Data exata
             const now = new Date();
             let dueDate = new Date();
             let requeue = false;
@@ -300,7 +323,7 @@
                 requeue = true; 
             } else {
                 dueDate.setDate(dueDate.getDate() + newInterval);
-                dueDate.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0); // Zera hora para ser tratado como "Dia Inteiro"
                 requeue = false; 
             }
 
@@ -320,11 +343,11 @@
             if (result.state === 'review') {
                 if (result.interval === 1) return '1d';
                 if (result.interval < 30) return `${result.interval}d`;
-                if (result.interval < 365) return `${Math.round(result.interval/30)}mo`;
-                return `${Math.round(result.interval/365)}y`;
+                if (result.interval < 365) return `${(result.interval/30).toFixed(1).replace('.0','')}mo`;
+                return `${(result.interval/365).toFixed(1).replace('.0','')}y`;
             }
             if (result.dueMinutes < 60) return `${Math.round(result.dueMinutes)}m`;
-            if (result.dueMinutes < 1440) return `${Math.round(result.dueMinutes/60)}h`;
+            if (result.dueMinutes < 1440) return `${(result.dueMinutes/60).toFixed(1).replace('.0','')}h`;
             return `${Math.round(result.dueMinutes/1440)}d`;
         };
 
@@ -507,7 +530,7 @@
                 let timeSpent = Date.now() - cardStartTime;
                 if (timeSpent > 60000) timeSpent = 60000; 
 
-                // CORREÇÃO 2: Feedback visual via Box-Shadow no próprio card, não na tela inteira.
+                // Feedback visual via Box-Shadow no próprio card
                 const colorMap = {
                     1: 'rgba(239, 68, 68, 0.6)', // Vermelho
                     2: 'rgba(249, 115, 22, 0.6)', // Laranja
@@ -654,7 +677,7 @@
                         <div className="flex items-center gap-3">
                             {getStateBadge()}
                             
-                            {/* CORREÇÃO 3: Streak reposicionado inline no cabeçalho para nunca cortar */}
+                            {/* Streak reposicionado inline no cabeçalho para nunca cortar */}
                             {userStats && userStats.currentStreak > 2 && (
                                 <div className="flex items-center gap-1 text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-orange-500/20 animate-pulse-slow">
                                     <Flame size={12} /> Streak: {userStats.currentStreak}
@@ -665,7 +688,7 @@
                         </div>
                     </div>
                     
-                    {/* Container Principal do Card - CORREÇÃO 2: Box Shadow Aplicada aqui na borda exata */}
+                    {/* Container Principal do Card - Box Shadow Aplicada aqui na borda exata */}
                     <div className="relative flex-1 group z-10">
                         <div 
                             className={`w-full h-full duration-500 transform-style-3d transition-all relative rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}
@@ -680,7 +703,7 @@
                                 <button onClick={handleFlip} className="mt-6 bg-slate-800 hover:bg-slate-700 text-blue-400 px-8 py-3 rounded-full font-bold transition-all flex items-center gap-2 border border-slate-700 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] group shrink-0 z-10"><Eye size={18} className="group-hover:scale-110 transition-transform" /> <span className="text-sm">Revelar (Espaço)</span></button>
                             </div>
 
-                            {/* VERSO - CORREÇÃO 1: Opacidade extra para evitar spoiler no giro e background mais sólido */}
+                            {/* VERSO - Opacidade extra para evitar spoiler no giro e background mais sólido */}
                             <div className={`absolute inset-0 backface-hidden rotate-y-180 glass border-2 border-blue-500/30 rounded-3xl p-6 md:p-8 flex flex-col items-center overflow-hidden bg-slate-900 transition-opacity duration-300 ${isFlipped ? 'opacity-100' : 'opacity-0'}`}>
                                  <div className="absolute top-4 right-4 text-slate-600 hover:text-blue-400 cursor-pointer transition-colors z-20" title="Ouvir Resposta" onClick={(e) => { e.stopPropagation(); speakText(card.back); }}><Volume2 size={24} /></div>
                                 <div className="w-full border-b border-slate-800/80 pb-4 mb-4 text-center shrink-0"><span className="text-[10px] uppercase text-slate-600 font-bold tracking-widest block mb-1">Contexto (Pergunta)</span><div className="text-sm text-slate-400 opacity-70 line-clamp-2 px-4" dangerouslySetInnerHTML={{__html: card.front}}></div></div>
@@ -821,7 +844,7 @@
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><Cpu size={32} /></div>
                             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.4</span></h1>
-                            <p className="text-slate-400 text-sm">Engine SM-2 Real-time para máxima retenção em Ciência da Computação.</p>
+                            <p className="text-slate-400 text-sm">Engine SM-2 Otimizado para máxima retenção em Ciência da Computação.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-3">
