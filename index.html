@@ -97,6 +97,19 @@
         }
         .exam-radio:checked { background-color: #3b82f6; border-color: #3b82f6; }
         .exam-radio:checked::before { transform: scale(1); }
+
+        /* === CORREÇÃO AUTOMÁTICA DE CARDS ANTIGOS COM HTML SUJO DO GOOGLE DOCS === */
+        .exam-prose span[style*="color: #000000"],
+        .exam-prose span[style*="color: rgb(0, 0, 0)"] {
+            color: inherit !important;
+        }
+        .exam-prose span[style*="background-color: transparent"] {
+            background-color: transparent !important;
+        }
+        .exam-prose span[style*="background-color: #ffffff"],
+        .exam-prose span[style*="background-color: rgb(255, 255, 255)"] {
+            background-color: transparent !important;
+        }
     </style>
 </head>
 
@@ -108,9 +121,11 @@
 
         // --- IMPORTS FIREBASE & ICONS ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, FileText, CheckCircle2, XCircle, Award, ArrowRight, FileQuestion } from "https://esm.sh/lucide-react@0.344.0?bundle";
+        
+        // Novas ferramentas adicionadas à lista: Eraser, Palette, Highlighter
+        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, FileText, CheckCircle2, XCircle, Award, ArrowRight, FileQuestion, Eraser, Palette, Highlighter } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
             apiKey: "AIzaSyClIIJkYOmAvEKPtXvG-SIi9SzxQpaBN9s",
@@ -375,22 +390,83 @@
                 }
             }, [value]);
 
-            const execCmd = (cmd) => { document.execCommand(cmd, false, null); };
+            const execCmd = (cmd, val = null) => { document.execCommand(cmd, false, val); };
             const execBlock = (tag) => { document.execCommand('formatBlock', false, tag); };
+
+            // === LÓGICA DE LIMPEZA E SANITIZAÇÃO DO GOOGLE DOCS AO COLAR ===
+            const handlePaste = (e) => {
+                e.preventDefault();
+                const text = e.clipboardData.getData('text/plain');
+                const html = e.clipboardData.getData('text/html');
+
+                if (html) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+
+                    // Remove estilos injetados que conflitam com o modo escuro
+                    const elements = tempDiv.querySelectorAll('*');
+                    elements.forEach(el => {
+                        if (el.style) {
+                            el.style.color = '';
+                            el.style.backgroundColor = '';
+                            el.style.fontFamily = '';
+                            el.style.fontSize = '';
+                            el.style.lineHeight = '';
+                        }
+                        el.removeAttribute('class');
+                        el.removeAttribute('dir');
+                        el.removeAttribute('id');
+                    });
+
+                    // Google Docs usa muitos spans. Removemos os vazios que não servem mais para nada.
+                    const spans = tempDiv.querySelectorAll('span');
+                    spans.forEach(span => {
+                        if (span.attributes.length === 0) {
+                            const fragment = document.createDocumentFragment();
+                            while (span.firstChild) {
+                                fragment.appendChild(span.firstChild);
+                            }
+                            span.parentNode.replaceChild(fragment, span);
+                        }
+                    });
+
+                    document.execCommand('insertHTML', false, tempDiv.innerHTML);
+                } else {
+                    document.execCommand('insertText', false, text);
+                }
+            };
 
             return (
                 <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col h-40 focus-within:border-blue-500 transition-colors">
-                    <div className="bg-slate-800 p-2 flex gap-1 border-b border-slate-700 flex-wrap">
+                    <div className="bg-slate-800 p-2 flex gap-1 border-b border-slate-700 flex-wrap items-center">
                         <button type="button" onClick={() => execCmd('bold')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Negrito"><Bold size={16}/></button>
                         <button type="button" onClick={() => execCmd('italic')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Itálico"><Italic size={16}/></button>
                         <button type="button" onClick={() => execCmd('insertUnorderedList')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Lista"><List size={16}/></button>
                         <button type="button" onClick={() => execBlock('pre')} className="p-1.5 hover:bg-slate-700 rounded text-purple-400" title="Inserir Código (Bloco)"><Code size={16}/></button>
+                        
+                        <div className="w-px h-4 bg-slate-700 mx-1"></div>
+                        
+                        {/* SELETORES DE CORES AVANÇADOS */}
+                        <label className="p-1.5 hover:bg-slate-700 rounded text-blue-400 cursor-pointer flex items-center gap-1" title="Cor do Texto">
+                            <Palette size={16} />
+                            <input type="color" className="w-0 h-0 opacity-0 absolute pointer-events-none" onChange={(e) => execCmd('foreColor', e.target.value)} />
+                        </label>
+                        <label className="p-1.5 hover:bg-slate-700 rounded text-yellow-400 cursor-pointer flex items-center gap-1" title="Cor de Fundo (Highlight)">
+                            <Highlighter size={16} />
+                            <input type="color" className="w-0 h-0 opacity-0 absolute pointer-events-none" onChange={(e) => execCmd('hiliteColor', e.target.value)} />
+                        </label>
+                        
+                        <div className="w-px h-4 bg-slate-700 mx-1"></div>
+
+                        {/* BOTÃO DE LIMPEZA DE FORMATAÇÃO */}
+                        <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 hover:bg-slate-700 rounded text-red-400" title="Limpar Formatação (Remove cores pretas indesejadas)"><Eraser size={16}/></button>
                     </div>
                     <div 
                         ref={editorRef}
                         className="flex-1 p-4 text-white focus:outline-none overflow-y-auto custom-scrollbar prose text-sm exam-prose" 
                         contentEditable 
                         onInput={(e) => onChange(e.currentTarget.innerHTML)}
+                        onPaste={handlePaste}
                         data-placeholder={placeholder}
                     ></div>
                 </div>
@@ -607,7 +683,6 @@
             );
         };
 
-        // --- FLASHCARD COMPONENTS --- (Mantidos do original, omitidos os detalhes por espaço na view, apenas Heatmap e etc)
         const Heatmap = ({ reviews }) => {
             const days = Array.from({length: 30}, (_, i) => {
                 const d = new Date();
@@ -1006,6 +1081,9 @@
                     const fetchedLeaders = snap.docs.map(d => d.data());
                     setLeaders(fetchedLeaders.sort((a,b) => ((b.cardsSeen||0) - (a.cardsSeen||0))).slice(0, 50));
                     setLoading(false);
+                }, (error) => {
+                    console.error("Leaderboard fetch error:", error);
+                    setLoading(false);
                 });
                 return () => unsub(); 
             }, []);
@@ -1299,52 +1377,75 @@
             const [studyQueue, setStudyQueue] = React.useState([]);
             const [activeExam, setActiveExam] = React.useState(null);
             const [customStudyOpen, setCustomStudyOpen] = React.useState(false);
+
+            const handleGuestMode = async () => {
+                try {
+                    await signInAnonymously(auth);
+                } catch(err) {
+                    alert("Erro ao entrar como visitante: " + err.message);
+                }
+            };
             
             React.useEffect(() => {
                 const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
                     setUser(currentUser);
                     if (currentUser) {
                         setIsAdmin(currentUser.email?.endsWith("@userpro.com") || false);
+                        setView(prev => prev === "loading" || prev === "auth" ? "decks" : prev);
                     } else {
                         setIsAdmin(false);
                         setReviews({});
                         setUserStats(null);
+                        setCards([]);
+                        setExams([]);
+                        setView("auth");
                     }
-                    setView(currentUser ? "decks" : "auth");
                 });
 
+                return () => { unsubAuth(); };
+            }, []);
+
+            React.useEffect(() => {
+                if (!user) return; // Prevent queries when unauthenticated
+                
                 const qCards = query(collection(db, "cards"));
                 const unsubCards = onSnapshot(qCards, (snapshot) => {
                     const loadedCards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setCards(loadedCards);
-                });
+                }, (error) => console.error("Cards Listener Error:", error));
 
                 const qExams = query(collection(db, "exams"));
                 const unsubExams = onSnapshot(qExams, (snapshot) => {
                     const loadedExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setExams(loadedExams.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
-                });
+                }, (error) => console.error("Exams Listener Error:", error));
 
-                return () => { unsubAuth(); unsubCards(); unsubExams(); };
-            }, []);
+                return () => { unsubCards(); unsubExams(); };
+            }, [user]);
 
             React.useEffect(() => {
-                if (!user) return;
+                if (!user) return; // Prevent queries when unauthenticated
+
                 const qReviews = query(collection(db, `users/${user.uid}/reviews`));
                 const unsubReviews = onSnapshot(qReviews, (snapshot) => {
                     const userReviews = {};
                     snapshot.forEach(doc => { userReviews[doc.id] = doc.data(); });
                     setReviews(userReviews);
-                });
+                }, (error) => console.error("Reviews Listener Error:", error));
                 
                 const statsRef = doc(db, 'leaderboard', user.uid);
                 const unsubStats = onSnapshot(statsRef, async (docSnap) => {
                     if (!docSnap.exists()) {
-                        await setDoc(statsRef, { email: user.email, cardsSeen: 0, timeStudied: 0, currentStreak: 0, retention: 0 }, { merge: true });
+                        try {
+                            await setDoc(statsRef, { email: user.email || 'Anônimo', cardsSeen: 0, timeStudied: 0, currentStreak: 0, retention: 0 }, { merge: true });
+                        } catch (e) {
+                            console.error("Failed to create stats:", e);
+                        }
                     } else {
                         setUserStats(docSnap.data());
                     }
-                });
+                }, (error) => console.error("Stats Listener Error:", error));
+
                 return () => { unsubReviews(); unsubStats(); };
             }, [user]);
 
@@ -1453,7 +1554,7 @@
                 );
             }
 
-            if (view === "auth") return <AuthScreen onLogin={() => setView("decks")} guestMode={() => setView("decks")} />;
+            if (view === "auth") return <AuthScreen onLogin={() => setView("decks")} guestMode={handleGuestMode} />;
 
             const structure = getDecksStructure();
             const allTags = [...new Set(cards.flatMap(c => c.tags || []))].sort();
