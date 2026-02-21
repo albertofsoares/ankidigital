@@ -47,7 +47,14 @@
     <style>
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
+        
+        /* CORREÇÃO 1: Backface visibility agressiva para todos os motores de renderização */
+        .backface-hidden { 
+            backface-visibility: hidden; 
+            -webkit-backface-visibility: hidden; 
+            transform: translateZ(0); /* Força a aceleração de hardware separando as camadas */
+        }
+        
         .rotate-y-180 { transform: rotateY(180deg); }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -62,34 +69,19 @@
         .prose pre { background: #0f172a; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin: 1em 0; border: 1px solid #1e293b; text-align: left; box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.5); }
         .prose pre code { background: transparent; color: #e2e8f0; padding: 0; border: none; }
         .prose { text-align: center; max-width: 100%; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        
+        /* Ajuste do Glass para garantir que o lado de trás oculte bem a frente */
+        .glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         
         /* Estilização para checkboxes customizados no Admin */
         .admin-checkbox {
-            appearance: none;
-            background-color: #1e293b;
-            margin: 0;
-            font: inherit;
-            color: currentColor;
-            width: 1.15em;
-            height: 1.15em;
-            border: 1px solid #475569;
-            border-radius: 0.25em;
-            display: grid;
-            place-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
+            appearance: none; background-color: #1e293b; margin: 0; font: inherit; color: currentColor; width: 1.15em; height: 1.15em;
+            border: 1px solid #475569; border-radius: 0.25em; display: grid; place-content: center; cursor: pointer; transition: all 0.2s ease-in-out;
         }
         .admin-checkbox::before {
-            content: "";
-            width: 0.65em;
-            height: 0.65em;
-            transform: scale(0);
-            transition: 120ms transform ease-in-out;
-            box-shadow: inset 1em 1em white;
-            background-color: transform-origin;
-            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+            content: ""; width: 0.65em; height: 0.65em; transform: scale(0); transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white; background-color: transform-origin; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
         }
         .admin-checkbox:checked { background-color: #3b82f6; border-color: #3b82f6; }
         .admin-checkbox:checked::before { transform: scale(1); }
@@ -124,6 +116,80 @@
         // NORMALIZAÇÃO AGRESSIVA: Evita inconsistências de nomenclatura no NoSQL
         const normalize = (val) => String(val || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
+        // --- CORREÇÃO 4: MOTOR DE ÁUDIO SINTÉTICO (SFX) ---
+        // Cria sons na hora usando matemática pura. Otimizado para não travar a UI.
+        const AudioEngine = (function() {
+            let audioCtx = null;
+            
+            const init = () => {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            };
+
+            const play = (type) => {
+                if (!window.AudioContext && !window.webkitAudioContext) return;
+                init();
+                
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'flip') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } 
+                else if (type === 'again') { // Rating 1: Som grave/cerrado
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+                else if (type === 'hard') { // Rating 2: Som neutro
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(250, now);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                }
+                else if (type === 'good') { // Rating 3: Som agudo/sucesso
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                }
+                else if (type === 'easy') { // Rating 4: Arpejo/Moeda (Dopamina pura)
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.setValueAtTime(650, now + 0.08);
+                    osc.frequency.setValueAtTime(800, now + 0.16);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            };
+            return { play };
+        })();
+
+
         // --- ERROR BOUNDARY ---
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, error: null }; }
@@ -148,13 +214,11 @@
         const STARTING_EASE = 2.5; 
 
         const calculateNextReview = (rating, currentData) => {
-            // BUGFIX: Força o tipo para Number e padroniza a String (evita que um "0" vire "01" e quebre o algoritmo)
             let interval = Number(currentData?.interval) || 0; 
             let ease = Number(currentData?.ease) || STARTING_EASE;
             let state = String(currentData?.state || 'new').toLowerCase().trim(); 
             let step = Number(currentData?.step) || 0; 
 
-            // Se o state ficou bizarro/corrompido no Firebase, reseta de forma segura
             if (!['new', 'learning', 'relearning', 'review'].includes(state)) {
                 state = 'new';
             }
@@ -168,17 +232,17 @@
             const STEPS = (state === 'relearning') ? [10] : LEARNING_STEPS;
 
             if (state === 'new' || state === 'learning' || state === 'relearning') {
-                if (rating === 1) { // Errei (Again)
+                if (rating === 1) { 
                     newStep = 0;
                     dueMinutes = STEPS[0] || 1;
                     newState = state === 'new' ? 'learning' : state; 
                 } 
-                else if (rating === 2) { // Difícil (Hard)
+                else if (rating === 2) { 
                     dueMinutes = Math.floor((STEPS[step] || STEPS[0] || 1) * 1.5);
                     if (dueMinutes < 1) dueMinutes = 1;
                     newState = state === 'new' ? 'learning' : state;
                 } 
-                else if (rating === 3) { // Bom (Good)
+                else if (rating === 3) { 
                     if (step < STEPS.length - 1) {
                         newStep = step + 1;
                         dueMinutes = STEPS[newStep] || 10;
@@ -193,7 +257,7 @@
                         newStep = 0;
                     }
                 } 
-                else if (rating === 4) { // Fácil (Easy)
+                else if (rating === 4) { 
                     if (state === 'relearning') {
                         newInterval = Math.max(1, interval + 1);
                     } else {
@@ -204,23 +268,23 @@
                 }
             } 
             else if (state === 'review') {
-                if (rating === 1) { // Errei (Lapse/Again)
+                if (rating === 1) { 
                     newEase = Math.max(1.3, ease - 0.20);
                     newInterval = Math.max(1, Math.floor(interval * 0.2)); 
                     newState = 'relearning';
                     newStep = 0;
-                    dueMinutes = 10; // Padrão Anki 10m pra Lapse 
+                    dueMinutes = 10; 
                 } 
-                else if (rating === 2) { // Difícil (Hard)
+                else if (rating === 2) { 
                     newEase = Math.max(1.3, ease - 0.15);
                     newInterval = Math.max(interval + 1, Math.floor(interval * 1.2));
                     newState = 'review';
                 } 
-                else if (rating === 3) { // Bom (Good)
+                else if (rating === 3) { 
                     newInterval = Math.max(interval + 1, Math.floor(interval * ease));
                     newState = 'review';
                 } 
-                else if (rating === 4) { // Fácil (Easy)
+                else if (rating === 4) { 
                     newEase = ease + 0.15;
                     newInterval = Math.max(interval + 1, Math.floor(interval * ease * 1.3));
                     newState = 'review';
@@ -256,7 +320,6 @@
             if (result.state === 'review') {
                 if (result.interval === 1) return '1d';
                 if (result.interval < 30) return `${result.interval}d`;
-                // Para não confundir com Minutos (m), agora usamos (mo) para meses e (y) para anos.
                 if (result.interval < 365) return `${Math.round(result.interval/30)}mo`;
                 return `${Math.round(result.interval/365)}y`;
             }
@@ -415,6 +478,11 @@
 
             const progress = queue.length > 0 ? ((index) / queue.length) * 100 : 100;
 
+            const handleFlip = () => {
+                AudioEngine.play('flip');
+                setIsFlipped(true);
+            };
+
             const handleUndo = () => {
                 if (finished) { setFinished(false); setIndex(queue.length - 1); setIsFlipped(true); } 
                 else if (index > 0) { setIndex(index - 1); setIsFlipped(true); }
@@ -424,7 +492,6 @@
             const card = queue[index];
             const currentData = card?.tempReviewData || (card ? reviews[card.id] : null) || { interval: 0, ease: 2.5, state: 'new', step: 0 };
             
-            // Computando opções em tempo real para os botões de resposta
             const options = { 
                 1: calculateNextReview(1, currentData), 
                 2: calculateNextReview(2, currentData), 
@@ -433,18 +500,24 @@
             };
 
             const handleRate = async (rating) => {
+                // Audio Feedback
+                const soundMap = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
+                AudioEngine.play(soundMap[rating]);
+
                 let timeSpent = Date.now() - cardStartTime;
                 if (timeSpent > 60000) timeSpent = 60000; 
 
+                // CORREÇÃO 2: Feedback visual via Box-Shadow no próprio card, não na tela inteira.
                 const colorMap = {
-                    1: 'rgba(239, 68, 68, 0.4)', 
-                    2: 'rgba(249, 115, 22, 0.4)',
-                    3: 'rgba(59, 130, 246, 0.4)',
-                    4: 'rgba(16, 185, 129, 0.4)' 
+                    1: 'rgba(239, 68, 68, 0.6)', // Vermelho
+                    2: 'rgba(249, 115, 22, 0.6)', // Laranja
+                    3: 'rgba(59, 130, 246, 0.6)', // Azul
+                    4: 'rgba(16, 185, 129, 0.6)'  // Verde
                 };
                 
                 setFeedbackPulse({ active: true, color: colorMap[rating] });
-                setTimeout(() => setFeedbackPulse(prev => ({ ...prev, active: false })), 50);
+                // Reseta rapidamente para permitir transição
+                setTimeout(() => setFeedbackPulse({ active: false, color: 'transparent' }), 200);
 
                 setCardStartTime(Date.now());
                 const result = options[rating];
@@ -468,7 +541,7 @@
                         await setDoc(doc(db, `users/${user.uid}/reviews/${card.id}`), { ...result, lastReviewed: serverTimestamp() });
                     } catch(e) { console.error("Erro ao salvar card:", e); }
 
-                    const isCorrect = rating > 1; // 2, 3, 4 são considerados acertos no SM-2
+                    const isCorrect = rating > 1;
                     const todayStr = new Date().toISOString().split('T')[0];
 
                     const updatedStats = { ...userStats };
@@ -502,6 +575,7 @@
                 if (index < queue.length - 1) {
                     setIndex(index + 1);
                 } else {
+                    AudioEngine.play('easy'); // Toca som de sucesso ao finalizar
                     setFinished(true);
                 }
             };
@@ -512,8 +586,8 @@
                     if (finished) return;
                     if (e.code === 'Space') { 
                         e.preventDefault();
-                        if (!isFlipped) setIsFlipped(true); 
-                        else handleRate(3); // QoL: Pressionar Espaço = Clica em "Bom" no modo virado
+                        if (!isFlipped) handleFlip(); 
+                        else handleRate(3); 
                     } 
                     else if (isFlipped) {
                           if (e.key === '1') handleRate(1);
@@ -550,15 +624,6 @@
             return (
                 <div className="max-w-3xl mx-auto mt-4 h-[80vh] flex flex-col perspective-1000 relative">
                     
-                    {/* OVERLAY Dopaminérgico */}
-                    <div 
-                        className={`fixed inset-0 pointer-events-none z-[100] ${feedbackPulse.active ? 'transition-none' : 'transition-opacity duration-500 ease-out'}`}
-                        style={{
-                            boxShadow: `inset 0 0 120px ${feedbackPulse.color}, inset 0 0 20px ${feedbackPulse.color}`,
-                            opacity: feedbackPulse.active ? 1 : 0
-                        }}
-                    ></div>
-
                     {requeueNotice && (
                         <div className="absolute top-10 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-blue-400 px-4 py-2 rounded-full border border-blue-500/30 shadow-lg text-sm font-bold animate-fade-in flex items-center gap-2">
                             <Repeat size={14} /> {requeueNotice}
@@ -588,24 +653,35 @@
                         </div>
                         <div className="flex items-center gap-3">
                             {getStateBadge()}
+                            
+                            {/* CORREÇÃO 3: Streak reposicionado inline no cabeçalho para nunca cortar */}
+                            {userStats && userStats.currentStreak > 2 && (
+                                <div className="flex items-center gap-1 text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-orange-500/20 animate-pulse-slow">
+                                    <Flame size={12} /> Streak: {userStats.currentStreak}
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-2 font-mono"><Layers size={14} className="text-slate-600"/><span>{queue.length - index} restantes</span></div>
                         </div>
                     </div>
                     
-                    {userStats && userStats.currentStreak > 2 && (
-                        <div className="absolute -top-12 right-0 flex items-center gap-1 text-orange-500 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20 font-bold text-sm animate-pulse-slow">
-                            <Flame size={16} /> Streak: {userStats.currentStreak}
-                        </div>
-                    )}
-
+                    {/* Container Principal do Card - CORREÇÃO 2: Box Shadow Aplicada aqui na borda exata */}
                     <div className="relative flex-1 group z-10">
-                        <div className={`w-full h-full duration-500 transform-style-3d transition-transform relative ${isFlipped ? 'rotate-y-180' : ''}`}>
-                            <div className="absolute inset-0 backface-hidden glass border border-slate-700 rounded-3xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl overflow-hidden bg-slate-900/90">
+                        <div 
+                            className={`w-full h-full duration-500 transform-style-3d transition-all relative rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}
+                            style={{
+                                boxShadow: feedbackPulse.active ? `0 0 60px 10px ${feedbackPulse.color}, inset 0 0 20px ${feedbackPulse.color}` : '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                            }}
+                        >
+                            {/* FRENTE */}
+                            <div className="absolute inset-0 backface-hidden glass border border-slate-700 rounded-3xl p-6 md:p-8 flex flex-col items-center text-center overflow-hidden bg-slate-900">
                                 <div className="absolute top-4 right-4 text-slate-600 hover:text-blue-400 cursor-pointer transition-colors z-20" title="Ouvir Pergunta" onClick={(e) => { e.stopPropagation(); speakText(card.front); }}><Volume2 size={24} /></div>
                                 <div className="flex-1 w-full flex items-center justify-center overflow-hidden relative"><div className="w-full max-h-full overflow-y-auto custom-scrollbar px-4 flex flex-col items-center justify-center"><div className="prose prose-invert prose-lg md:prose-2xl font-medium text-white select-text w-full max-w-none leading-relaxed break-words" dangerouslySetInnerHTML={{__html: card.front || ''}}></div></div></div>
-                                <button onClick={() => setIsFlipped(true)} className="mt-6 bg-slate-800 hover:bg-slate-700 text-blue-400 px-8 py-3 rounded-full font-bold transition-all flex items-center gap-2 border border-slate-700 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] group shrink-0 z-10"><Eye size={18} className="group-hover:scale-110 transition-transform" /> <span className="text-sm">Revelar (Espaço)</span></button>
+                                <button onClick={handleFlip} className="mt-6 bg-slate-800 hover:bg-slate-700 text-blue-400 px-8 py-3 rounded-full font-bold transition-all flex items-center gap-2 border border-slate-700 hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] group shrink-0 z-10"><Eye size={18} className="group-hover:scale-110 transition-transform" /> <span className="text-sm">Revelar (Espaço)</span></button>
                             </div>
-                            <div className="absolute inset-0 backface-hidden rotate-y-180 glass border-2 border-blue-500/30 rounded-3xl p-6 md:p-8 flex flex-col items-center shadow-2xl overflow-hidden bg-slate-900/95">
+
+                            {/* VERSO - CORREÇÃO 1: Opacidade extra para evitar spoiler no giro e background mais sólido */}
+                            <div className={`absolute inset-0 backface-hidden rotate-y-180 glass border-2 border-blue-500/30 rounded-3xl p-6 md:p-8 flex flex-col items-center overflow-hidden bg-slate-900 transition-opacity duration-300 ${isFlipped ? 'opacity-100' : 'opacity-0'}`}>
                                  <div className="absolute top-4 right-4 text-slate-600 hover:text-blue-400 cursor-pointer transition-colors z-20" title="Ouvir Resposta" onClick={(e) => { e.stopPropagation(); speakText(card.back); }}><Volume2 size={24} /></div>
                                 <div className="w-full border-b border-slate-800/80 pb-4 mb-4 text-center shrink-0"><span className="text-[10px] uppercase text-slate-600 font-bold tracking-widest block mb-1">Contexto (Pergunta)</span><div className="text-sm text-slate-400 opacity-70 line-clamp-2 px-4" dangerouslySetInnerHTML={{__html: card.front}}></div></div>
                                 <div className="flex-1 w-full overflow-hidden relative"><div className="w-full max-h-full overflow-y-auto custom-scrollbar px-4"><div className="prose prose-invert prose-lg text-slate-200 w-full max-w-none text-center select-text leading-relaxed break-words" dangerouslySetInnerHTML={{__html: card.back || ''}}></div></div></div>
@@ -744,7 +820,7 @@
                     <div className="w-full max-w-md glass p-8 rounded-2xl shadow-2xl relative z-10 animate-slide-up">
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><Cpu size={32} /></div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.3</span></h1>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v1.4</span></h1>
                             <p className="text-slate-400 text-sm">Engine SM-2 Real-time para máxima retenção em Ciência da Computação.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -873,36 +949,29 @@
             );
         };
 
-        // --- PAINEL ADMIN UNIFICADO COM MASSA DE DADOS ---
         const AdminPanel = ({ cards, onExit }) => {
-            // ESTADOS DO FORMULÁRIO SIMPLES
             const [form, setForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
             const [tagInput, setTagInput] = React.useState('');
             const [editingId, setEditingId] = React.useState(null);
             
-            // ESTADOS DE FILTRO
             const [filterCategory, setFilterCategory] = React.useState('Todos');
             const [filterLesson, setFilterLesson] = React.useState('Todos');
             const [filterSubcategory, setFilterSubcategory] = React.useState('Todos');
             const [filterTag, setFilterTag] = React.useState('Todas');
             const [searchTerm, setSearchTerm] = React.useState('');
 
-            // ESTADOS DE SELEÇÃO EM MASSA
             const [selectedCardIds, setSelectedCardIds] = React.useState(new Set());
             
-            // ESTADOS DO FORMULÁRIO DE LOTE (BULK)
             const [bulkForm, setBulkForm] = React.useState({ category: '', lesson: '', subcategory: '', tagsToAdd: [], tagsToRemove: [] });
             const [bulkTagAddInput, setBulkTagAddInput] = React.useState('');
             const [bulkTagRemoveInput, setBulkTagRemoveInput] = React.useState('');
             const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
             
-            // OPÇÕES GLOBAIS
             const existingCategories = [...new Set(cards.map(c => normalize(c.category)))].filter(Boolean).sort();
             const existingLessons = [...new Set(cards.map(c => normalize(c.lesson || 'Conteúdo Geral')))].filter(Boolean).sort();
             const existingSubcategories = [...new Set(cards.map(c => normalize(c.subcategory || 'Geral')))].filter(Boolean).sort();
             const existingAdminTags = [...new Set(cards.flatMap(c => c.tags || []))].filter(Boolean).sort();
 
-            // FILTRAGEM
             const filteredCards = cards.filter(c => {
                 const cCat = normalize(c.category).toLowerCase();
                 const cLess = normalize(c.lesson || 'Conteúdo Geral').toLowerCase();
@@ -924,7 +993,6 @@
 
             const allFilteredSelected = filteredCards.length > 0 && filteredCards.every(c => selectedCardIds.has(c.id));
 
-            // --- FUNÇÕES DE SELEÇÃO ---
             const handleToggleSelection = (id) => {
                 const newSelection = new Set(selectedCardIds);
                 if (newSelection.has(id)) newSelection.delete(id);
@@ -944,7 +1012,6 @@
                 }
             };
 
-            // --- FUNÇÕES DE LOTE (BULK EDIT) ---
             const handleAddBulkTagAdd = (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
@@ -967,7 +1034,6 @@
                 if (selectedCardIds.size === 0) return;
                 
                 const idsArray = Array.from(selectedCardIds);
-                const isOnlyTags = !bulkForm.category && !bulkForm.lesson && !bulkForm.subcategory && (bulkForm.tagsToAdd.length > 0 || bulkForm.tagsToRemove.length > 0);
                 const hasChanges = bulkForm.category || bulkForm.lesson || bulkForm.subcategory || bulkForm.tagsToAdd.length > 0 || bulkForm.tagsToRemove.length > 0;
                 
                 if (!hasChanges) {
@@ -979,7 +1045,6 @@
 
                 setIsBulkProcessing(true);
 
-                // O Firebase possui limite de 500 operações por batch, então fatiamos em pedaços de 450 para segurança
                 const chunkSize = 450;
                 let processedCount = 0;
 
@@ -1028,12 +1093,11 @@
                 }
 
                 setIsBulkProcessing(false);
-                setSelectedCardIds(new Set()); // Limpa seleção após sucesso
-                setBulkForm({ category: '', lesson: '', subcategory: '', tagsToAdd: [], tagsToRemove: [] }); // Limpa o formulário de lote
+                setSelectedCardIds(new Set()); 
+                setBulkForm({ category: '', lesson: '', subcategory: '', tagsToAdd: [], tagsToRemove: [] }); 
             };
 
 
-            // --- FUNÇÕES FORMULÁRIO SIMPLES ---
             const handleAddTag = (e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
@@ -1067,7 +1131,6 @@
             };
 
             const handleEditCard = (card) => { 
-                // Se estiver no modo lote, um clique num card pode apenas marca-lo ou desmarca-lo para facilitar
                 if (selectedCardIds.size > 0) {
                     handleToggleSelection(card.id);
                     return;
@@ -1407,7 +1470,6 @@
                         else dueDate = new Date(dueDate || now);
 
                         if (dueDate <= endOfToday) {
-                            // Bugfix: Evita falha de contagem por inconsistência de caracteres no DB
                             const rState = String(rev.state || '').toLowerCase().trim();
                             if (rState === 'learning' || rState === 'relearning') isLearn = true;
                             else if (rState === 'review') isReview = true;
@@ -1537,7 +1599,7 @@
                                 <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-2 rounded-lg shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform">
                                     <Cpu size={20} className="text-white" />
                                 </div>
-                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top border border-blue-500/30">BATCH</span></span>
+                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top border border-blue-500/30">v1.4</span></span>
                             </div>
                             <div className="flex items-center gap-4">
                                 {user && <button onClick={() => setView("leaderboard")} className="text-yellow-500 flex items-center gap-1.5 text-sm hover:text-yellow-400 font-medium bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20 transition-all hover:bg-yellow-500/20"><Trophy size={14} /> Ranking Global</button>}
