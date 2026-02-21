@@ -98,7 +98,7 @@
         .exam-radio:checked { background-color: #3b82f6; border-color: #3b82f6; }
         .exam-radio:checked::before { transform: scale(1); }
 
-        /* === CORREÇÃO AUTOMÁTICA DE CARDS ANTIGOS COM HTML SUJO DO GOOGLE DOCS === */
+        /* === CORREÇÃO AUTOMÁTICA DE CARDS ANTIGOS === */
         .exam-prose span[style*="color: #000000"],
         .exam-prose span[style*="color: rgb(0, 0, 0)"] {
             color: inherit !important;
@@ -139,7 +139,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // NORMALIZAÇÃO AGRESSIVA: Evita inconsistências de nomenclatura no NoSQL
+        // NORMALIZAÇÃO AGRESSIVA
         const normalize = (val) => String(val || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
         // --- MOTOR DE ÁUDIO SINTÉTICO (SFX) ---
@@ -233,7 +233,7 @@
         }
 
         // ============================================================================
-        // ENGINE ANKI OTIMIZADO (MANTIDO INTACTO)
+        // ENGINE ANKI OTIMIZADO
         // ============================================================================
         const LEARNING_STEPS = [1, 10, 60]; 
         const GRADUATING_INTERVAL = 1; 
@@ -442,7 +442,6 @@
                         
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
                         
-                        {/* SELETORES DE CORES AVANÇADOS */}
                         <label className="p-1.5 hover:bg-slate-700 rounded text-blue-400 cursor-pointer flex items-center gap-1" title="Cor do Texto">
                             <Palette size={16} />
                             <input type="color" className="w-0 h-0 opacity-0 absolute pointer-events-none" onChange={(e) => execCmd('foreColor', e.target.value)} />
@@ -454,8 +453,7 @@
                         
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
 
-                        {/* BOTÃO DE LIMPEZA DE FORMATAÇÃO */}
-                        <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 hover:bg-slate-700 rounded text-red-400" title="Limpar Formatação (Remove cores pretas indesejadas)"><Eraser size={16}/></button>
+                        <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 hover:bg-slate-700 rounded text-red-400" title="Limpar Formatação"><Eraser size={16}/></button>
                     </div>
                     <div 
                         ref={editorRef}
@@ -1083,12 +1081,12 @@
         };
 
         // ============================================================================
-        // NOVO LEADERBOARD PROFISSIONAL (ESTILO ANKI STATS)
+        // LEADERBOARD
         // ============================================================================
         const LeaderboardView = () => {
             const [leaders, setLeaders] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
-            const [boardTab, setBoardTab] = React.useState('flashcards'); // 'flashcards' ou 'exams'
+            const [boardTab, setBoardTab] = React.useState('flashcards');
             
             React.useEffect(() => {
                 const q = query(collection(db, 'leaderboard'));
@@ -1103,7 +1101,6 @@
                 return () => unsub(); 
             }, []);
 
-            // Calcula o total dos últimos 30 dias iterando no map dailyActivity
             const getLast30DaysCount = (dailyActivity) => {
                 if (!dailyActivity) return 0;
                 const today = new Date();
@@ -1176,7 +1173,6 @@
                                             const retention = l.retention || 0;
                                             const last30 = getLast30DaysCount(l.dailyActivity);
                                             
-                                            // Highlights especiais para o Top 3
                                             let rankColor = "text-slate-500";
                                             let rowBg = "hover:bg-slate-800/40";
                                             if (i === 0) { rankColor = "text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]"; rowBg = "bg-yellow-500/5 hover:bg-yellow-500/10"; }
@@ -1263,31 +1259,74 @@
             );
         };
 
+        // ============================================================================
+        // PAINEL DE ADMINISTRAÇÃO TOTALMENTE REVISADO COM CRUD E FILTROS COMPLETOS
+        // ============================================================================
         const AdminPanel = ({ cards, exams, onExit }) => {
-            const [adminTab, setAdminTab] = React.useState('cards'); // 'cards' ou 'exams'
+            const [adminTab, setAdminTab] = React.useState('cards'); 
 
             // --- ESTADOS DOS CARDS ---
             const [cardForm, setCardForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
             const [editingCardId, setEditingCardId] = React.useState(null);
+            
+            // Filtros Avançados
             const [searchTermCards, setSearchTermCards] = React.useState('');
+            const [filterCategory, setFilterCategory] = React.useState('');
+            const [filterLesson, setFilterLesson] = React.useState('');
+
+            // Construção das listas para os menus de filtro baseadas nos dados existentes
+            const categories = [...new Set(cards.map(c => normalize(c.category)).filter(Boolean))].sort();
+            const lessons = [...new Set(cards.filter(c => !filterCategory || normalize(c.category) === filterCategory).map(c => normalize(c.lesson)).filter(Boolean))].sort();
+
+            // Filtragem Robusta de Cards
+            const filteredCards = cards.filter(c => {
+                // Remove tags HTML da frente do card para pesquisa em texto limpo
+                const cleanFront = (c.front || '').replace(/<[^>]*>?/gm, '').toLowerCase();
+                const matchSearch = searchTermCards === '' || cleanFront.includes(searchTermCards.toLowerCase());
+                const matchCat = filterCategory === '' || normalize(c.category) === filterCategory;
+                const matchLesson = filterLesson === '' || normalize(c.lesson) === filterLesson;
+                
+                return matchSearch && matchCat && matchLesson;
+            });
 
             // --- ESTADOS DOS SIMULADOS ---
             const initialExamForm = { title: '', subject: '', questions: [{ text: '', options: ['', '', '', '', ''], correctIndex: 0 }] };
             const [examForm, setExamForm] = React.useState(initialExamForm);
             const [editingExamId, setEditingExamId] = React.useState(null);
+            
+            // Filtros para Simulados
+            const [searchTermExams, setSearchTermExams] = React.useState('');
+            
+            const filteredExams = exams.filter(e => {
+                const titleMatch = (e.title || '').toLowerCase().includes(searchTermExams.toLowerCase());
+                const subjectMatch = (e.subject || '').toLowerCase().includes(searchTermExams.toLowerCase());
+                return searchTermExams === '' || titleMatch || subjectMatch;
+            });
 
-            // Filtros de Cards
-            const filteredCards = cards.filter(c => searchTermCards === '' || (c.front || '').toLowerCase().includes(searchTermCards.toLowerCase()) || (c.back || '').toLowerCase().includes(searchTermCards.toLowerCase()));
+            // Lógica de Novo Item (Reset do formulário)
+            const handleNewCard = () => {
+                setEditingCardId(null);
+                setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: '', tags: [] });
+            };
+
+            const handleNewExam = () => {
+                setEditingExamId(null);
+                setExamForm(initialExamForm);
+            };
 
             const handleSaveCard = async (e) => {
                 e.preventDefault();
                 if(!cardForm.front || !cardForm.back) { alert("Preencha Pergunta e Resposta."); return; }
                 try {
                     const dataToSave = { ...cardForm, category: normalize(cardForm.category), lesson: normalize(cardForm.lesson), subcategory: normalize(cardForm.subcategory) };
-                    if (editingCardId) await updateDoc(doc(db, "cards", editingCardId), dataToSave);
-                    else await addDoc(collection(db, "cards"), { ...dataToSave, createdAt: serverTimestamp() });
-                    setCardForm({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] }); 
-                    setEditingCardId(null);
+                    if (editingCardId) {
+                        await updateDoc(doc(db, "cards", editingCardId), dataToSave);
+                    } else {
+                        await addDoc(collection(db, "cards"), { ...dataToSave, createdAt: serverTimestamp() });
+                        setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: '', tags: [] }); 
+                    }
+                    handleNewCard(); // Reseta para estado de criação
+                    alert("Card salvo com sucesso!");
                 } catch (e) { alert("Erro ao salvar card: " + e.message); }
             };
 
@@ -1296,19 +1335,13 @@
                 if(confirm("Deletar este card de forma irreversível?")) await deleteDoc(doc(db, "cards", id)); 
             };
 
-            // ---- LÓGICA DO SIMULADO (NOVO) ----
+            // ---- LÓGICA DO SIMULADO ----
             const handleAddQuestion = () => {
-                setExamForm(prev => ({
-                    ...prev,
-                    questions: [...prev.questions, { text: '', options: ['', '', '', '', ''], correctIndex: 0 }]
-                }));
+                setExamForm(prev => ({ ...prev, questions: [...prev.questions, { text: '', options: ['', '', '', '', ''], correctIndex: 0 }] }));
             };
 
             const handleRemoveQuestion = (index) => {
-                setExamForm(prev => ({
-                    ...prev,
-                    questions: prev.questions.filter((_, i) => i !== index)
-                }));
+                setExamForm(prev => ({ ...prev, questions: prev.questions.filter((_, i) => i !== index) }));
             };
 
             const handleQuestionTextChange = (index, value) => {
@@ -1334,7 +1367,6 @@
                 if(!examForm.title || !examForm.subject) { alert("Preencha o Título e a Matéria do simulado."); return; }
                 if(examForm.questions.length === 0) { alert("Adicione pelo menos uma questão."); return; }
                 
-                // Validate options
                 for (let i = 0; i < examForm.questions.length; i++) {
                     const q = examForm.questions[i];
                     if (!q.text) { alert(`A questão ${i+1} não tem enunciado.`); return; }
@@ -1349,8 +1381,7 @@
                     } else {
                         await addDoc(collection(db, "exams"), { ...examForm, createdAt: serverTimestamp() });
                     }
-                    setExamForm(initialExamForm);
-                    setEditingExamId(null);
+                    handleNewExam();
                     alert("Simulado salvo com sucesso!");
                 } catch (e) { alert("Erro ao salvar simulado: " + e.message); }
             };
@@ -1383,36 +1414,76 @@
                     {/* CONTEÚDO DA ABA SELECIONADA */}
                     {adminTab === 'cards' && (
                         <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
-                            {/* COLUNA ESQUERDA: LISTA CARDS */}
+                            {/* COLUNA ESQUERDA: LISTA CARDS COM FILTROS */}
                             <div className="w-full md:w-[40%] flex flex-col border-r border-slate-700/50 pr-4">
-                                <input type="text" placeholder="Buscar flashcard..." value={searchTermCards} onChange={(e) => setSearchTermCards(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-3 mb-4 outline-none focus:border-blue-500"/>
+                                
+                                {/* Filtros e Botão Novo */}
+                                <div className="flex flex-col gap-3 mb-4 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                                    <button onClick={handleNewCard} className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${!editingCardId ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-900/50'}`}>
+                                        <Plus size={18}/> Novo Flashcard
+                                    </button>
+                                    
+                                    <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                                        <input type="text" placeholder="Pesquisar na frente do card..." value={searchTermCards} onChange={(e) => setSearchTermCards(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg pl-9 pr-3 py-2 outline-none focus:border-blue-500"/>
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <select value={filterCategory} onChange={(e) => {setFilterCategory(e.target.value); setFilterLesson('');}} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                            <option value="">Todas as Matérias</option>
+                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                            <option value="">Todas as Aulas/Tópicos</option>
+                                            {lessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="text-xs text-slate-500 text-right mt-1 font-mono">{filteredCards.length} cards encontrados</div>
+                                </div>
+
                                 <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
                                     {filteredCards.map(c => (
-                                        <div key={c.id} onClick={() => { setCardForm({front: c.front, back: c.back, category: c.category, lesson: c.lesson||'', subcategory: c.subcategory||'', tags: c.tags||[]}); setEditingCardId(c.id); }} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${editingCardId === c.id ? 'bg-slate-800 border-slate-500' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
+                                        <div key={c.id} onClick={() => { setCardForm({front: c.front, back: c.back, category: c.category, lesson: c.lesson||'', subcategory: c.subcategory||'', tags: c.tags||[]}); setEditingCardId(c.id); }} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${editingCardId === c.id ? 'bg-blue-900/30 border-blue-500 shadow-md' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-blue-400 text-[10px] font-mono uppercase truncate mb-1">{c.category} &gt; {c.lesson}</div>
-                                                <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-blue-400 text-[10px] font-mono uppercase bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{c.category}</span>
+                                                    <span className="text-slate-400 text-[10px] font-mono uppercase truncate">{c.lesson}</span>
+                                                </div>
+                                                <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-90" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
                                             </div>
                                             <button onClick={(e) => handleDeleteCard(c.id, e)} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity h-fit"><Trash2 size={14}/></button>
                                         </div>
                                     ))}
+                                    {filteredCards.length === 0 && <p className="text-center text-slate-500 italic mt-4 text-sm">Nenhum flashcard corresponde à sua busca.</p>}
                                 </div>
                             </div>
+
                             {/* COLUNA DIREITA: FORM CARD */}
                             <div className="flex-1 overflow-y-auto pl-2 custom-scrollbar">
-                                <form onSubmit={handleSaveCard} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col">
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><Pencil size={18} className="text-blue-500"/> {editingCardId ? 'Editar Flashcard' : 'Criar Flashcard (SM-2)'}</h3>
+                                <form onSubmit={handleSaveCard} className={`space-y-4 p-4 rounded-xl h-full flex flex-col border transition-colors ${editingCardId ? 'bg-blue-950/20 border-blue-900/50' : 'bg-slate-900/20 border-slate-800'}`}>
+                                    <div className="flex items-center justify-between">
+                                        <h3 className={`text-lg font-bold flex items-center gap-2 ${editingCardId ? 'text-blue-400' : 'text-emerald-400'}`}>
+                                            {editingCardId ? <Pencil size={18}/> : <Plus size={18}/>}
+                                            {editingCardId ? 'Modo de Edição: Atualizando Flashcard' : 'Modo de Criação: Novo Flashcard'}
+                                        </h3>
+                                        {editingCardId && <span className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded font-mono border border-blue-700">ID: {editingCardId.substring(0,6)}...</span>}
+                                    </div>
+                                    
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700" value={cardForm.category} onChange={e=>setCardForm(prev=>({...prev, category: e.target.value}))}/></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700" value={cardForm.lesson} onChange={e=>setCardForm(prev=>({...prev, lesson: e.target.value}))}/></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria (Category)</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.category} onChange={e=>setCardForm(prev=>({...prev, category: e.target.value}))}/></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula/Tópico (Lesson)</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.lesson} onChange={e=>setCardForm(prev=>({...prev, lesson: e.target.value}))}/></div>
                                     </div>
+                                    
                                     <div className="flex-1 flex flex-col gap-4">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Frente (Pergunta)</label><RichTextEditor value={cardForm.front} onChange={(val) => setCardForm(prev => ({...prev, front: val}))} /></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Verso (Resposta)</label><RichTextEditor value={cardForm.back} onChange={(val) => setCardForm(prev => ({...prev, back: val}))} /></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Frente (Enunciado / Pergunta)</label><RichTextEditor value={cardForm.front} onChange={(val) => setCardForm(prev => ({...prev, front: val}))} /></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Verso (Explicação / Resposta)</label><RichTextEditor value={cardForm.back} onChange={(val) => setCardForm(prev => ({...prev, back: val}))} /></div>
                                     </div>
-                                    <div className="flex gap-3 pt-4 border-t border-slate-700">
-                                        {editingCardId && <button type="button" onClick={() => {setEditingCardId(null); setCardForm({ front: '', back: '', category: 'Geral', lesson: '', subcategory: '', tags: [] });}} className="w-1/3 bg-slate-700 text-white font-bold p-3 rounded-lg">Cancelar</button>}
-                                        <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg flex justify-center gap-2 items-center"><Save size={18} /> Salvar Flashcard</button>
+                                    
+                                    <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                                        {editingCardId && <button type="button" onClick={handleNewCard} className="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold p-3 rounded-lg border border-slate-600 transition-colors">Cancelar Edição</button>}
+                                        <button type="submit" className={`flex-1 font-bold p-3 rounded-lg flex justify-center gap-2 items-center transition-transform hover:scale-[1.02] ${editingCardId ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20'}`}>
+                                            <Save size={18} /> {editingCardId ? 'Salvar Alterações' : 'Cadastrar Novo Flashcard'}
+                                        </button>
                                     </div>
                                 </form>
                             </div>
@@ -1424,28 +1495,41 @@
                         <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
                             {/* COLUNA ESQUERDA: LISTA SIMULADOS */}
                             <div className="w-full md:w-[30%] flex flex-col border-r border-slate-700/50 pr-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Simulados Cadastrados</h3>
+                                
+                                <div className="flex flex-col gap-3 mb-4 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                                    <button onClick={handleNewExam} className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${!editingExamId ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-900/50'}`}>
+                                        <Plus size={18}/> Novo Simulado
+                                    </button>
+                                    <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                                        <input type="text" placeholder="Filtrar por Título ou Matéria..." value={searchTermExams} onChange={(e) => setSearchTermExams(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg pl-9 pr-3 py-2 outline-none focus:border-purple-500"/>
+                                    </div>
+                                </div>
+
                                 <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-                                    {exams.map(e => (
+                                    {filteredExams.map(e => (
                                         <div key={e.id} onClick={() => { setExamForm(e); setEditingExamId(e.id); }} className={`p-4 rounded-xl text-sm border cursor-pointer transition-all group ${editingExamId === e.id ? 'bg-blue-900/30 border-blue-500 shadow-md' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
                                             <div className="flex justify-between items-start">
-                                                <div className="text-blue-400 text-[10px] font-mono uppercase truncate mb-1">{e.subject}</div>
+                                                <div className="text-purple-400 text-[10px] font-mono uppercase truncate mb-1 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{e.subject}</div>
                                                 <button onClick={(ev) => handleDeleteExam(e.id, ev)} className="text-red-400 hover:bg-red-900/30 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
                                             </div>
                                             <div className="text-white font-bold truncate mb-1">{e.title}</div>
-                                            <div className="text-slate-500 text-xs">{e.questions?.length || 0} questões</div>
+                                            <div className="text-slate-500 text-xs flex items-center gap-1"><List size={12}/> {e.questions?.length || 0} questões cadastradas</div>
                                         </div>
                                     ))}
-                                    {exams.length === 0 && <p className="text-slate-500 text-sm italic text-center mt-4">Nenhum simulado criado.</p>}
+                                    {filteredExams.length === 0 && <p className="text-slate-500 text-sm italic text-center mt-4">Nenhum simulado corresponde à busca.</p>}
                                 </div>
-                                <button onClick={() => {setEditingExamId(null); setExamForm(initialExamForm);}} className="mt-4 w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2"><Plus size={16}/> Novo Simulado</button>
                             </div>
                             
                             {/* COLUNA DIREITA: FORMULÁRIO DO SIMULADO */}
                             <div className="flex-1 overflow-y-auto pl-2 custom-scrollbar">
-                                <form onSubmit={handleSaveExam} className="bg-slate-900/20 rounded-xl h-full flex flex-col pb-4">
-                                    <div className="sticky top-0 bg-slate-950/90 backdrop-blur-md pt-2 pb-4 border-b border-slate-800 z-10 mb-4">
-                                        <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4"><FileText size={18} className="text-blue-500"/> {editingExamId ? 'Editar Simulado' : 'Criar Novo Simulado Oficial'}</h3>
+                                <form onSubmit={handleSaveExam} className={`rounded-xl h-full flex flex-col pb-4 border transition-colors ${editingExamId ? 'bg-blue-950/20 border-blue-900/50' : 'bg-slate-900/20 border-slate-800'}`}>
+                                    <div className="sticky top-0 bg-slate-950/95 backdrop-blur-md p-4 border-b border-slate-800 z-10 mb-4 rounded-t-xl">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className={`text-lg font-bold flex items-center gap-2 ${editingExamId ? 'text-blue-400' : 'text-emerald-400'}`}>
+                                                <FileText size={18}/> {editingExamId ? 'Modo de Edição: Atualizando Simulado' : 'Modo de Criação: Novo Simulado'}
+                                            </h3>
+                                        </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-xs font-bold text-slate-500 uppercase ml-1">Título do Simulado</label>
@@ -1458,11 +1542,11 @@
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 space-y-8 pr-2">
+                                    <div className="flex-1 space-y-8 px-4">
                                         {examForm.questions.map((q, qIndex) => (
                                             <div key={qIndex} className="bg-slate-900 border border-slate-700 p-5 rounded-2xl relative">
                                                 <div className="absolute -top-3 left-4 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full border border-blue-500 shadow-md">Questão {qIndex + 1}</div>
-                                                <button type="button" onClick={() => handleRemoveQuestion(qIndex)} className="absolute top-4 right-4 text-slate-500 hover:text-red-400 bg-slate-800 p-1.5 rounded-lg"><Trash2 size={16}/></button>
+                                                <button type="button" onClick={() => handleRemoveQuestion(qIndex)} className="absolute top-4 right-4 text-slate-500 hover:text-red-400 bg-slate-800 p-1.5 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                                 
                                                 <div className="mt-4 mb-4">
                                                     <label className="text-xs font-bold text-slate-400 uppercase ml-1 block mb-2">Enunciado da Questão</label>
@@ -1470,13 +1554,13 @@
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <label className="text-xs font-bold text-slate-400 uppercase ml-1 block mb-2">Opções (Marque a Correta)</label>
+                                                    <label className="text-xs font-bold text-slate-400 uppercase ml-1 block mb-2">Opções (Marque a alternativa Correta clicando no círculo)</label>
                                                     {[0,1,2,3,4].map((optIndex) => (
-                                                        <div key={optIndex} className={`flex items-start gap-3 p-2 rounded-lg border transition-colors ${q.correctIndex === optIndex ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-slate-800/50 border-slate-700 focus-within:border-blue-500'}`}>
+                                                        <div key={optIndex} className={`flex items-start gap-3 p-2 rounded-lg border transition-colors ${q.correctIndex === optIndex ? 'bg-emerald-900/20 border-emerald-500/50 shadow-inner' : 'bg-slate-800/50 border-slate-700 focus-within:border-blue-500'}`}>
                                                             <div className="pt-2 pl-2">
                                                                 <input type="radio" name={`correct-${qIndex}`} checked={q.correctIndex === optIndex} onChange={() => handleCorrectAnsChange(qIndex, optIndex)} className="exam-radio" title="Marcar como Resposta Correta" />
                                                             </div>
-                                                            <div className="font-mono font-bold text-slate-500 pt-2 w-4">{String.fromCharCode(65 + optIndex)})</div>
+                                                            <div className={`font-mono font-bold pt-2 w-4 ${q.correctIndex === optIndex ? 'text-emerald-400' : 'text-slate-500'}`}>{String.fromCharCode(65 + optIndex)})</div>
                                                             <textarea rows="1" className="w-full bg-transparent p-2 text-white outline-none resize-y min-h-[40px] text-sm" placeholder={`Texto da alternativa ${String.fromCharCode(65 + optIndex)}`} value={q.options[optIndex]} onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}></textarea>
                                                         </div>
                                                     ))}
@@ -1485,12 +1569,15 @@
                                         ))}
                                         
                                         <div className="pt-2">
-                                            <button type="button" onClick={handleAddQuestion} className="w-full border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/50 text-slate-400 hover:text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"><Plus size={18}/> Adicionar Nova Questão</button>
+                                            <button type="button" onClick={handleAddQuestion} className="w-full border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/50 text-slate-400 hover:text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"><Plus size={18}/> Adicionar Nova Questão neste Simulado</button>
                                         </div>
                                     </div>
 
-                                    <div className="sticky bottom-0 bg-slate-950 pt-4 pb-2 border-t border-slate-800 mt-6 z-10">
-                                        <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold p-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex justify-center gap-2 items-center text-lg"><Save size={20} /> Salvar Simulado Completo</button>
+                                    <div className="sticky bottom-0 bg-slate-950/95 backdrop-blur-md pt-4 pb-4 px-4 border-t border-slate-800 mt-6 z-10 rounded-b-xl flex gap-3">
+                                        {editingExamId && <button type="button" onClick={handleNewExam} className="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold p-3 rounded-lg border border-slate-600 transition-colors">Cancelar Edição</button>}
+                                        <button type="submit" className={`flex-1 text-white font-bold p-4 rounded-xl shadow-lg transition-transform hover:scale-[1.02] flex justify-center gap-2 items-center text-lg ${editingExamId ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'}`}>
+                                            <Save size={20} /> {editingExamId ? 'Salvar Modificações no Simulado' : 'Cadastrar Simulado Completo'}
+                                        </button>
                                     </div>
                                 </form>
                             </div>
@@ -1544,7 +1631,7 @@
             }, []);
 
             React.useEffect(() => {
-                if (!user) return; // Prevent queries when unauthenticated
+                if (!user) return; 
                 
                 const qCards = query(collection(db, "cards"));
                 const unsubCards = onSnapshot(qCards, (snapshot) => {
@@ -1562,7 +1649,7 @@
             }, [user]);
 
             React.useEffect(() => {
-                if (!user) return; // Prevent queries when unauthenticated
+                if (!user) return; 
 
                 const qReviews = query(collection(db, `users/${user.uid}/reviews`));
                 const unsubReviews = onSnapshot(qReviews, (snapshot) => {
@@ -1737,7 +1824,6 @@
                         )}
                         {view === "study" && <StudySession initialQueue={studyQueue} user={user} reviews={reviews} setReviews={setReviews} userStats={userStats} setUserStats={setUserStats} onFinish={() => setView("decks")} />}
                         
-                        {/* Novas Views de Simulado */}
                         {view === "exams_list" && <ExamsList exams={exams} onStartExam={startExam} />}
                         {view === "exam_session" && activeExam && <ExamSession exam={activeExam} user={user} userStats={userStats} setUserStats={setUserStats} onExit={() => { setActiveExam(null); setView("exams_list"); }} />}
 
