@@ -98,7 +98,7 @@
         .exam-radio:checked { background-color: #3b82f6; border-color: #3b82f6; }
         .exam-radio:checked::before { transform: scale(1); }
 
-        /* === CORREÇÃO AUTOMÁTICA DE CARDS ANTIGOS COM HTML SUJO DO GOOGLE DOCS === */
+        /* Correção automática de HTML colado */
         .exam-prose span[style*="color: #000000"],
         .exam-prose span[style*="color: rgb(0, 0, 0)"] {
             color: inherit !important;
@@ -124,7 +124,6 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         
-        // Novas ferramentas adicionadas à lista: Eraser, Palette, Highlighter
         import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, FileText, CheckCircle2, XCircle, Award, ArrowRight, FileQuestion, Eraser, Palette, Highlighter } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
@@ -140,7 +139,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // NORMALIZAÇÃO AGRESSIVA: Evita inconsistências de nomenclatura no NoSQL
+        // NORMALIZAÇÃO AGRESSIVA
         const normalize = (val) => String(val || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
 
         // --- MOTOR DE ÁUDIO SINTÉTICO (SFX) ---
@@ -234,7 +233,7 @@
         }
 
         // ============================================================================
-        // ENGINE ANKI OTIMIZADO (MANTIDO INTACTO)
+        // ENGINE ANKI OTIMIZADO
         // ============================================================================
         const LEARNING_STEPS = [1, 10, 60]; 
         const GRADUATING_INTERVAL = 1; 
@@ -393,7 +392,6 @@
             const execCmd = (cmd, val = null) => { document.execCommand(cmd, false, val); };
             const execBlock = (tag) => { document.execCommand('formatBlock', false, tag); };
 
-            // === LÓGICA DE LIMPEZA E SANITIZAÇÃO DO GOOGLE DOCS AO COLAR ===
             const handlePaste = (e) => {
                 e.preventDefault();
                 const text = e.clipboardData.getData('text/plain');
@@ -403,7 +401,6 @@
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = html;
 
-                    // Remove estilos injetados que conflitam com o modo escuro
                     const elements = tempDiv.querySelectorAll('*');
                     elements.forEach(el => {
                         if (el.style) {
@@ -418,7 +415,6 @@
                         el.removeAttribute('id');
                     });
 
-                    // Google Docs usa muitos spans. Removemos os vazios que não servem mais para nada.
                     const spans = tempDiv.querySelectorAll('span');
                     spans.forEach(span => {
                         if (span.attributes.length === 0) {
@@ -446,7 +442,6 @@
                         
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
                         
-                        {/* SELETORES DE CORES AVANÇADOS */}
                         <label className="p-1.5 hover:bg-slate-700 rounded text-blue-400 cursor-pointer flex items-center gap-1" title="Cor do Texto">
                             <Palette size={16} />
                             <input type="color" className="w-0 h-0 opacity-0 absolute pointer-events-none" onChange={(e) => execCmd('foreColor', e.target.value)} />
@@ -458,8 +453,7 @@
                         
                         <div className="w-px h-4 bg-slate-700 mx-1"></div>
 
-                        {/* BOTÃO DE LIMPEZA DE FORMATAÇÃO */}
-                        <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 hover:bg-slate-700 rounded text-red-400" title="Limpar Formatação (Remove cores pretas indesejadas)"><Eraser size={16}/></button>
+                        <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 hover:bg-slate-700 rounded text-red-400" title="Limpar Formatação"><Eraser size={16}/></button>
                     </div>
                     <div 
                         ref={editorRef}
@@ -492,7 +486,7 @@
                 <div className="animate-fade-in space-y-6">
                     <header className="border-b border-slate-800 pb-6">
                         <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-3"><FileText size={28} className="text-blue-500" /> Simulados Oficiais</h2>
-                        <p className="text-slate-400">Teste seus conhecimentos em condições reais de prova. Seu desempenho nestas sessões não altera o algoritmo de espaçamento dos seus flashcards.</p>
+                        <p className="text-slate-400">Teste seus conhecimentos em condições reais de prova. Seu desempenho nas simulações formam um ranking independente.</p>
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -514,7 +508,7 @@
             );
         };
 
-        const ExamSession = ({ exam, onExit }) => {
+        const ExamSession = ({ exam, user, userExamStats, setUserExamStats, onExit }) => {
             const [currentIndex, setCurrentIndex] = React.useState(0);
             const [answers, setAnswers] = React.useState({});
             const [isFinished, setIsFinished] = React.useState(false);
@@ -558,6 +552,27 @@
                 AudioEngine.play('success');
                 setScoreData({ correctCount, total: questions.length, finalScore, results });
                 setIsFinished(true);
+
+                // ATUALIZAÇÃO DO RANKING INDEPENDENTE DE SIMULADOS
+                if (user && userExamStats) {
+                    const updatedStats = {
+                        ...userExamStats,
+                        totalQuestions: (userExamStats.totalQuestions || 0) + questions.length,
+                        totalCorrect: (userExamStats.totalCorrect || 0) + correctCount,
+                        totalScore: (userExamStats.totalScore || 0) + parseFloat(finalScore)
+                    };
+                    setUserExamStats(updatedStats);
+                    
+                    try {
+                        setDoc(doc(db, 'exam_leaderboard', user.uid), {
+                            email: user.email || 'Anônimo',
+                            ...updatedStats,
+                            lastActive: serverTimestamp()
+                        }, { merge: true });
+                    } catch(e) {
+                        console.error("Erro ao salvar rank de simulado:", e);
+                    }
+                }
             };
 
             if (isFinished && scoreData) {
@@ -1072,53 +1087,95 @@
         };
 
         const LeaderboardView = () => {
-            const [leaders, setLeaders] = React.useState([]);
+            const [leadersCards, setLeadersCards] = React.useState([]);
+            const [leadersExams, setLeadersExams] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
+            const [tab, setTab] = React.useState('cards'); // 'cards' ou 'exams'
             
             React.useEffect(() => {
-                const q = query(collection(db, 'leaderboard'));
-                const unsub = onSnapshot(q, (snap) => {
-                    const fetchedLeaders = snap.docs.map(d => d.data());
-                    setLeaders(fetchedLeaders.sort((a,b) => ((b.cardsSeen||0) - (a.cardsSeen||0))).slice(0, 50));
+                const qCards = query(collection(db, 'leaderboard'));
+                const unsubCards = onSnapshot(qCards, (snap) => {
+                    const fetched = snap.docs.map(d => d.data());
+                    setLeadersCards(fetched.sort((a,b) => ((b.cardsSeen||0) - (a.cardsSeen||0))).slice(0, 50));
+                }, (error) => console.error(error));
+
+                const qExams = query(collection(db, 'exam_leaderboard'));
+                const unsubExams = onSnapshot(qExams, (snap) => {
+                    const fetched = snap.docs.map(d => d.data());
+                    setLeadersExams(fetched.sort((a,b) => ((b.totalScore||0) - (a.totalScore||0))).slice(0, 50));
                     setLoading(false);
-                }, (error) => {
-                    console.error("Leaderboard fetch error:", error);
-                    setLoading(false);
-                });
-                return () => unsub(); 
+                }, (error) => console.error(error));
+
+                return () => { unsubCards(); unsubExams(); }; 
             }, []);
 
-            if(loading) return <div className="text-center p-8 text-white">Carregando Ranking...</div>;
+            if(loading) return <div className="text-center p-8 text-white font-mono text-sm tracking-widest">Carregando Rankings...</div>;
 
             return (
                 <div className="max-w-5xl mx-auto animate-fade-in">
-                    <div className="flex items-center gap-4 mb-8 p-6 glass rounded-2xl border border-slate-700/50">
-                        <Trophy className="text-yellow-500" size={40}/>
-                        <div>
-                            <h2 className="text-3xl font-bold text-white tracking-tight">Leaderboard Global</h2>
-                            <p className="text-slate-400 text-sm mt-1">Ranking atualizado em tempo real baseado em constância e volume.</p>
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 p-6 glass rounded-2xl border border-slate-700/50">
+                        <div className="flex items-center gap-4">
+                            <Trophy className="text-yellow-500" size={40}/>
+                            <div>
+                                <h2 className="text-3xl font-bold text-white tracking-tight">Leaderboard Global</h2>
+                                <p className="text-slate-400 text-sm mt-1">Classificação oficial por dedicação, constância e resultados.</p>
+                            </div>
+                        </div>
+                        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shrink-0 self-stretch md:self-auto">
+                            <button onClick={() => setTab('cards')} className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-2 ${tab === 'cards' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Layers size={16}/> Flashcards</button>
+                            <button onClick={() => setTab('exams')} className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-2 ${tab === 'exams' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><FileText size={16}/> Simulados</button>
                         </div>
                     </div>
+                    
                     <div className="glass rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50 overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[800px]">
-                            <thead className="bg-slate-900/90 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                                <tr>
-                                    <th className="p-4 border-b border-slate-800 text-center w-16">Rank</th>
-                                    <th className="p-4 border-b border-slate-800">Estudante</th>
-                                    <th className="p-4 border-b border-slate-800 text-center">Cards Lidos</th>
-                                    <th className="p-4 border-b border-slate-800 text-center text-orange-500"><Flame size={14} className="inline"/> Streak</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/50 transition-all">
-                                {leaders.map((l, i) => (
-                                    <tr key={l.email || i} className="hover:bg-slate-800/40">
-                                        <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
-                                        <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
-                                        <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.cardsSeen||0).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 text-center text-slate-300 font-mono font-bold">{l.currentStreak||0}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
+                            {tab === 'cards' ? (
+                                <>
+                                    <thead className="bg-slate-900/90 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                                        <tr>
+                                            <th className="p-4 border-b border-slate-800 text-center w-16">Rank</th>
+                                            <th className="p-4 border-b border-slate-800">Estudante</th>
+                                            <th className="p-4 border-b border-slate-800 text-center">Cards Lidos</th>
+                                            <th className="p-4 border-b border-slate-800 text-center text-orange-500"><Flame size={14} className="inline"/> Streak</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/50 transition-all">
+                                        {leadersCards.map((l, i) => (
+                                            <tr key={l.email || i} className="hover:bg-slate-800/40">
+                                                <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
+                                                <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
+                                                <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.cardsSeen||0).toLocaleString('pt-BR')}</td>
+                                                <td className="p-4 text-center text-slate-300 font-mono font-bold">{l.currentStreak||0}</td>
+                                            </tr>
+                                        ))}
+                                        {leadersCards.length === 0 && <tr><td colSpan="4" className="text-center p-8 text-slate-500">Nenhum dado registrado para flashcards.</td></tr>}
+                                    </tbody>
+                                </>
+                            ) : (
+                                <>
+                                    <thead className="bg-slate-900/90 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                                        <tr>
+                                            <th className="p-4 border-b border-slate-800 text-center w-16">Rank</th>
+                                            <th className="p-4 border-b border-slate-800">Estudante</th>
+                                            <th className="p-4 border-b border-slate-800 text-center text-slate-300">Q. Realizadas</th>
+                                            <th className="p-4 border-b border-slate-800 text-center text-blue-400">Q. Acertadas</th>
+                                            <th className="p-4 border-b border-slate-800 text-center text-emerald-500"><Target size={14} className="inline"/> Nota Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/50 transition-all">
+                                        {leadersExams.map((l, i) => (
+                                            <tr key={l.email || i} className="hover:bg-slate-800/40">
+                                                <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
+                                                <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
+                                                <td className="p-4 text-center text-slate-300 font-mono font-bold">{(l.totalQuestions||0).toLocaleString('pt-BR')}</td>
+                                                <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.totalCorrect||0).toLocaleString('pt-BR')}</td>
+                                                <td className="p-4 text-center text-emerald-400 font-mono font-bold text-lg bg-emerald-900/10">{(l.totalScore||0).toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+                                            </tr>
+                                        ))}
+                                        {leadersExams.length === 0 && <tr><td colSpan="5" className="text-center p-8 text-slate-500">Nenhum simulado finalizado ainda.</td></tr>}
+                                    </tbody>
+                                </>
+                            )}
                         </table>
                     </div>
                 </div>
@@ -1126,7 +1183,7 @@
         };
 
         const AdminPanel = ({ cards, exams, onExit }) => {
-            const [adminTab, setAdminTab] = React.useState('cards'); // 'cards' ou 'exams'
+            const [adminTab, setAdminTab] = React.useState('cards'); 
 
             // --- ESTADOS DOS CARDS ---
             const [cardForm, setCardForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
@@ -1158,7 +1215,7 @@
                 if(confirm("Deletar este card de forma irreversível?")) await deleteDoc(doc(db, "cards", id)); 
             };
 
-            // ---- LÓGICA DO SIMULADO (NOVO) ----
+            // ---- LÓGICA DO SIMULADO ----
             const handleAddQuestion = () => {
                 setExamForm(prev => ({
                     ...prev,
@@ -1196,7 +1253,6 @@
                 if(!examForm.title || !examForm.subject) { alert("Preencha o Título e a Matéria do simulado."); return; }
                 if(examForm.questions.length === 0) { alert("Adicione pelo menos uma questão."); return; }
                 
-                // Validate options
                 for (let i = 0; i < examForm.questions.length; i++) {
                     const q = examForm.questions[i];
                     if (!q.text) { alert(`A questão ${i+1} não tem enunciado.`); return; }
@@ -1371,7 +1427,10 @@
             const [cards, setCards] = React.useState([]);
             const [exams, setExams] = React.useState([]);
             const [reviews, setReviews] = React.useState({});
-            const [userStats, setUserStats] = React.useState(null);
+            
+            // Rankings e Stats do Usuário
+            const [userStats, setUserStats] = React.useState(null);         // Flashcards
+            const [userExamStats, setUserExamStats] = React.useState(null); // Simulados
             
             // Sessões
             const [studyQueue, setStudyQueue] = React.useState([]);
@@ -1396,6 +1455,7 @@
                         setIsAdmin(false);
                         setReviews({});
                         setUserStats(null);
+                        setUserExamStats(null);
                         setCards([]);
                         setExams([]);
                         setView("auth");
@@ -1406,7 +1466,7 @@
             }, []);
 
             React.useEffect(() => {
-                if (!user) return; // Prevent queries when unauthenticated
+                if (!user) return;
                 
                 const qCards = query(collection(db, "cards"));
                 const unsubCards = onSnapshot(qCards, (snapshot) => {
@@ -1424,8 +1484,9 @@
             }, [user]);
 
             React.useEffect(() => {
-                if (!user) return; // Prevent queries when unauthenticated
+                if (!user) return; 
 
+                // Listener SM-2 Flashcards Reviews
                 const qReviews = query(collection(db, `users/${user.uid}/reviews`));
                 const unsubReviews = onSnapshot(qReviews, (snapshot) => {
                     const userReviews = {};
@@ -1433,6 +1494,7 @@
                     setReviews(userReviews);
                 }, (error) => console.error("Reviews Listener Error:", error));
                 
+                // Listener Flashcards Leaderboard
                 const statsRef = doc(db, 'leaderboard', user.uid);
                 const unsubStats = onSnapshot(statsRef, async (docSnap) => {
                     if (!docSnap.exists()) {
@@ -1446,7 +1508,21 @@
                     }
                 }, (error) => console.error("Stats Listener Error:", error));
 
-                return () => { unsubReviews(); unsubStats(); };
+                // Listener Simulados Leaderboard
+                const examStatsRef = doc(db, 'exam_leaderboard', user.uid);
+                const unsubExamStats = onSnapshot(examStatsRef, async (docSnap) => {
+                    if (!docSnap.exists()) {
+                        try {
+                            await setDoc(examStatsRef, { email: user.email || 'Anônimo', totalQuestions: 0, totalCorrect: 0, totalScore: 0 }, { merge: true });
+                        } catch (e) {
+                            console.error("Failed to create exam stats:", e);
+                        }
+                    } else {
+                        setUserExamStats(docSnap.data());
+                    }
+                }, (error) => console.error("Exam Stats Listener Error:", error));
+
+                return () => { unsubReviews(); unsubStats(); unsubExamStats(); };
             }, [user]);
 
             const getDecksStructure = () => {
@@ -1533,7 +1609,7 @@
                 } else queue = queue.sort(() => Math.random() - 0.5);
                 
                 if (queue.length === 0) {
-                    if (confirm("Você já concluiu todos os cards. Forçar uma revisão extra (Modo Cram)?")) startCustomStudy({ category: category || 'All', mode: 'cram', limit: 20, tag: 'All' });
+                    if (confirm("Você já concluiu todos os cards pendentes. Forçar uma revisão extra de 20 cards aleatórios (Modo Cram)?")) startCustomStudy({ category: category || 'All', mode: 'cram', limit: 20, tag: 'All' });
                     return;
                 }
                 setStudyQueue(queue.sort(() => Math.random() - 0.5));
@@ -1569,7 +1645,7 @@
                             </div>
                             <div className="flex items-center gap-2 md:gap-4">
                                 <button onClick={() => setView("exams_list")} className={`hidden md:flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full transition-all border ${view === 'exams_list' ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'text-slate-400 hover:text-white border-transparent'}`}><FileText size={16} /> Simulados</button>
-                                {user && <button onClick={() => setView("leaderboard")} className="text-yellow-500 flex items-center gap-1.5 text-sm hover:text-yellow-400 font-medium bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/20 transition-all hover:bg-yellow-500/20"><Trophy size={14} className="hidden md:block"/> Ranking</button>}
+                                {user && <button onClick={() => setView("leaderboard")} className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full transition-all border ${view === 'leaderboard' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 shadow-md' : 'text-yellow-500 hover:text-yellow-400 bg-yellow-500/10 border-yellow-500/20'}`}><Trophy size={14} className="hidden md:block"/> Ranking</button>}
                                 {isAdmin && <button onClick={() => setView("admin")} className="text-amber-500 hover:text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 transition-all flex items-center gap-1.5 text-sm"><Lock size={14} className="hidden md:block"/> Admin</button>}
                                 {user ? <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-red-400 transition-colors ml-2" title="Sair"><LogOut size={20}/></button> : null}
                             </div>
@@ -1601,8 +1677,9 @@
                         
                         {/* Novas Views de Simulado */}
                         {view === "exams_list" && <ExamsList exams={exams} onStartExam={startExam} />}
-                        {view === "exam_session" && activeExam && <ExamSession exam={activeExam} onExit={() => { setActiveExam(null); setView("exams_list"); }} />}
+                        {view === "exam_session" && activeExam && <ExamSession exam={activeExam} user={user} userExamStats={userExamStats} setUserExamStats={setUserExamStats} onExit={() => { setActiveExam(null); setView("exams_list"); }} />}
 
+                        {/* View de Leaderboard Otimizada com abas */}
                         {view === "leaderboard" && <LeaderboardView />}
                         {view === "admin" && isAdmin && <AdminPanel cards={cards} exams={exams} onExit={() => setView("decks")} />}
                     </main>
