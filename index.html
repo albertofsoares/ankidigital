@@ -1084,55 +1084,61 @@
         };
 
         const LeaderboardView = () => {
-            const [activeTab, setActiveTab] = React.useState('cards'); // 'cards' ou 'exams'
-            const [cardLeaders, setCardLeaders] = React.useState([]);
+            const [mode, setMode] = React.useState('cards'); // 'cards' ou 'exams'
+            const [leaders, setLeaders] = React.useState([]); // Variável original restaurada
             const [examLeaders, setExamLeaders] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             
             React.useEffect(() => {
-                // Fetch Rankings for Flashcards
-                const qCards = query(collection(db, 'leaderboard'));
-                const unsubCards = onSnapshot(qCards, (snap) => {
-                    const fetched = snap.docs.map(d => d.data());
-                    setCardLeaders(fetched.sort((a,b) => ((b.cardsSeen||0) - (a.cardsSeen||0))).slice(0, 50));
+                // Fetch Original Ranking for Flashcards (MANTIDO INTACTO)
+                const q = query(collection(db, 'leaderboard'));
+                const unsub = onSnapshot(q, (snap) => {
+                    const fetchedLeaders = snap.docs.map(d => d.data());
+                    setLeaders(fetchedLeaders.sort((a,b) => ((b.cardsSeen||0) - (a.cardsSeen||0))).slice(0, 50));
                     setLoading(false);
-                }, (error) => console.error("Flashcard Leaderboard error:", error));
+                }, (error) => {
+                    console.error("Leaderboard fetch error:", error);
+                    setLoading(false);
+                });
 
                 // Fetch Rankings for Exams (Totalmente Independente)
                 const qExams = query(collection(db, 'exam_leaderboard'));
                 const unsubExams = onSnapshot(qExams, (snap) => {
                     const fetched = snap.docs.map(d => d.data());
-                    // Order by totalScore instead of cards
                     setExamLeaders(fetched.sort((a,b) => ((b.totalScore||0) - (a.totalScore||0))).slice(0, 50));
                 }, (error) => console.error("Exam Leaderboard error:", error));
 
-                return () => { unsubCards(); unsubExams(); }; 
+                return () => { unsub(); unsubExams(); }; 
             }, []);
 
-            if(loading) return <div className="text-center p-8 text-white">Carregando Rankings...</div>;
+            if(loading) return <div className="text-center p-8 text-white">Carregando Ranking...</div>;
 
             return (
                 <div className="max-w-5xl mx-auto animate-fade-in">
-                    <div className="flex items-center gap-4 mb-6 p-6 glass rounded-2xl border border-slate-700/50">
-                        <Trophy className="text-yellow-500" size={40}/>
-                        <div>
-                            <h2 className="text-3xl font-bold text-white tracking-tight">Leaderboards Globais</h2>
-                            <p className="text-slate-400 text-sm mt-1">Classificações independentes para retenção (Flashcards) e avaliação (Simulados).</p>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 p-6 glass rounded-2xl border border-slate-700/50">
+                        <div className="flex items-center gap-4">
+                            <Trophy className="text-yellow-500" size={40}/>
+                            <div>
+                                <h2 className="text-3xl font-bold text-white tracking-tight">Leaderboard Global</h2>
+                                <p className="text-slate-400 text-sm mt-1">Ranking atualizado em tempo real baseado em constância e volume.</p>
+                            </div>
+                        </div>
+                        
+                        {/* BOTOES DE ALTERNANCIA (SEPARADOS DO CODIGO ORIGINAL DA TABELA) */}
+                        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
+                            <button onClick={() => setMode('cards')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${mode === 'cards' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30' : 'text-slate-400 hover:text-white'}`}>
+                                Flashcards
+                            </button>
+                            <button onClick={() => setMode('exams')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${mode === 'exams' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' : 'text-slate-400 hover:text-white'}`}>
+                                Simulados
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex bg-slate-900/80 rounded-lg p-1.5 border border-slate-700 w-fit mb-6">
-                        <button onClick={() => setActiveTab('cards')} className={`px-5 py-2.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'cards' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30' : 'text-slate-400 hover:text-white'}`}>
-                            <Repeat size={16}/> Ranking Flashcards
-                        </button>
-                        <button onClick={() => setActiveTab('exams')} className={`px-5 py-2.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'exams' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' : 'text-slate-400 hover:text-white'}`}>
-                            <Target size={16}/> Ranking Simulados
-                        </button>
-                    </div>
-
-                    <div className="glass rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50 overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[800px]">
-                            {activeTab === 'cards' ? (
+                    {mode === 'cards' ? (
+                        /* CÓDIGO DA TABELA ORIGINAL RESTAURADO EXATAMENTE COMO ESTAVA */
+                        <div className="glass rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50 overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead className="bg-slate-900/90 text-slate-400 uppercase text-xs font-bold tracking-wider">
                                     <tr>
                                         <th className="p-4 border-b border-slate-800 text-center w-16">Rank</th>
@@ -1141,7 +1147,22 @@
                                         <th className="p-4 border-b border-slate-800 text-center text-orange-500"><Flame size={14} className="inline"/> Streak</th>
                                     </tr>
                                 </thead>
-                            ) : (
+                                <tbody className="divide-y divide-slate-800/50 transition-all">
+                                    {leaders.map((l, i) => (
+                                        <tr key={l.email || i} className="hover:bg-slate-800/40">
+                                            <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
+                                            <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
+                                            <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.cardsSeen||0).toLocaleString('pt-BR')}</td>
+                                            <td className="p-4 text-center text-slate-300 font-mono font-bold">{l.currentStreak||0}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        /* CÓDIGO DA TABELA NOVA DE SIMULADOS (INDEPENDENTE) */
+                        <div className="glass rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50 overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead className="bg-slate-900/90 text-slate-400 uppercase text-xs font-bold tracking-wider">
                                     <tr>
                                         <th className="p-4 border-b border-slate-800 text-center w-16">Rank</th>
@@ -1151,32 +1172,21 @@
                                         <th className="p-4 border-b border-slate-800 text-center text-purple-400"><Award size={14} className="inline"/> Nota Total</th>
                                     </tr>
                                 </thead>
-                            )}
-                            
-                            <tbody className="divide-y divide-slate-800/50 transition-all">
-                                {activeTab === 'cards' && cardLeaders.map((l, i) => (
-                                    <tr key={l.email || i} className="hover:bg-slate-800/40">
-                                        <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
-                                        <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
-                                        <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.cardsSeen||0).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 text-center text-slate-300 font-mono font-bold">{l.currentStreak||0}</td>
-                                    </tr>
-                                ))}
-                                {activeTab === 'cards' && cardLeaders.length === 0 && <tr><td colSpan="4" className="text-center p-8 text-slate-500 italic">Nenhum dado de Flashcards.</td></tr>}
-
-                                {activeTab === 'exams' && examLeaders.map((l, i) => (
-                                    <tr key={l.email || i} className="hover:bg-slate-800/40">
-                                        <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
-                                        <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
-                                        <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.questionsAnswered||0).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 text-center text-emerald-400 font-mono font-bold">{(l.questionsCorrect||0).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 text-center text-purple-400 font-mono font-bold">{(l.totalScore||0).toFixed(1)} pts</td>
-                                    </tr>
-                                ))}
-                                {activeTab === 'exams' && examLeaders.length === 0 && <tr><td colSpan="5" className="text-center p-8 text-slate-500 italic">Nenhum dado de Simulados ainda. Faça seu primeiro exame!</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
+                                <tbody className="divide-y divide-slate-800/50 transition-all">
+                                    {examLeaders.map((l, i) => (
+                                        <tr key={l.email || i} className="hover:bg-slate-800/40">
+                                            <td className="p-4 text-center font-bold text-slate-500 font-mono text-lg">{i+1}</td>
+                                            <td className="p-4 text-white font-medium">{l.email ? l.email.split('@')[0] : 'Anônimo'}</td>
+                                            <td className="p-4 text-center text-blue-400 font-mono font-bold">{(l.questionsAnswered||0).toLocaleString('pt-BR')}</td>
+                                            <td className="p-4 text-center text-emerald-400 font-mono font-bold">{(l.questionsCorrect||0).toLocaleString('pt-BR')}</td>
+                                            <td className="p-4 text-center text-purple-400 font-mono font-bold">{(l.totalScore||0).toFixed(1)} pts</td>
+                                        </tr>
+                                    ))}
+                                    {examLeaders.length === 0 && <tr><td colSpan="5" className="text-center p-8 text-slate-500 italic">Nenhum dado de Simulados ainda. Faça seu primeiro exame!</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             );
         };
