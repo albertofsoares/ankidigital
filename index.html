@@ -1266,17 +1266,19 @@
             const [adminTab, setAdminTab] = React.useState('cards'); 
 
             // --- ESTADOS DOS CARDS ---
-            const [cardForm, setCardForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] });
+            const [cardForm, setCardForm] = React.useState({ front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: 'Geral', tags: [] });
             const [editingCardId, setEditingCardId] = React.useState(null);
             
             // Filtros Avançados
             const [searchTermCards, setSearchTermCards] = React.useState('');
             const [filterCategory, setFilterCategory] = React.useState('');
             const [filterLesson, setFilterLesson] = React.useState('');
+            const [filterSubcategory, setFilterSubcategory] = React.useState('');
 
-            // Construção das listas para os menus de filtro baseadas nos dados existentes
+            // Construção das listas para os menus de filtro baseadas nos dados existentes (Hierárquico)
             const categories = [...new Set(cards.map(c => normalize(c.category)).filter(Boolean))].sort();
             const lessons = [...new Set(cards.filter(c => !filterCategory || normalize(c.category) === filterCategory).map(c => normalize(c.lesson)).filter(Boolean))].sort();
+            const subcategories = [...new Set(cards.filter(c => (!filterCategory || normalize(c.category) === filterCategory) && (!filterLesson || normalize(c.lesson) === filterLesson)).map(c => normalize(c.subcategory)).filter(Boolean))].sort();
 
             // Filtragem Robusta de Cards
             const filteredCards = cards.filter(c => {
@@ -1285,8 +1287,9 @@
                 const matchSearch = searchTermCards === '' || cleanFront.includes(searchTermCards.toLowerCase());
                 const matchCat = filterCategory === '' || normalize(c.category) === filterCategory;
                 const matchLesson = filterLesson === '' || normalize(c.lesson) === filterLesson;
+                const matchSub = filterSubcategory === '' || normalize(c.subcategory) === filterSubcategory;
                 
-                return matchSearch && matchCat && matchLesson;
+                return matchSearch && matchCat && matchLesson && matchSub;
             });
 
             // --- ESTADOS DOS SIMULADOS ---
@@ -1303,10 +1306,10 @@
                 return searchTermExams === '' || titleMatch || subjectMatch;
             });
 
-            // Lógica de Novo Item (Reset do formulário)
+            // Lógica de Novo Item (Reset do formulário preenchendo hierarquia selecionada)
             const handleNewCard = () => {
                 setEditingCardId(null);
-                setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: '', tags: [] });
+                setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: filterSubcategory || 'Geral', tags: [] });
             };
 
             const handleNewExam = () => {
@@ -1323,7 +1326,7 @@
                         await updateDoc(doc(db, "cards", editingCardId), dataToSave);
                     } else {
                         await addDoc(collection(db, "cards"), { ...dataToSave, createdAt: serverTimestamp() });
-                        setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: '', tags: [] }); 
+                        setCardForm({ front: '', back: '', category: filterCategory || 'Geral', lesson: filterLesson || 'Conteúdo Geral', subcategory: filterSubcategory || 'Geral', tags: [] }); 
                     }
                     handleNewCard(); // Reseta para estado de criação
                     alert("Card salvo com sucesso!");
@@ -1428,15 +1431,21 @@
                                         <input type="text" placeholder="Pesquisar na frente do card..." value={searchTermCards} onChange={(e) => setSearchTermCards(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg pl-9 pr-3 py-2 outline-none focus:border-blue-500"/>
                                     </div>
                                     
-                                    <div className="flex gap-2">
-                                        <select value={filterCategory} onChange={(e) => {setFilterCategory(e.target.value); setFilterLesson('');}} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                    <div className="flex flex-col gap-2">
+                                        <select value={filterCategory} onChange={(e) => {setFilterCategory(e.target.value); setFilterLesson(''); setFilterSubcategory('');}} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
                                             <option value="">Todas as Matérias</option>
                                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
-                                        <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
-                                            <option value="">Todas as Aulas/Tópicos</option>
-                                            {lessons.map(l => <option key={l} value={l}>{l}</option>)}
-                                        </select>
+                                        <div className="flex gap-2">
+                                            <select value={filterLesson} onChange={(e) => {setFilterLesson(e.target.value); setFilterSubcategory('');}} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                                <option value="">Todas as Aulas</option>
+                                                {lessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                            </select>
+                                            <select value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} className="w-1/2 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                                <option value="">Todos os Tópicos</option>
+                                                {subcategories.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
                                     </div>
                                     <div className="text-xs text-slate-500 text-right mt-1 font-mono">{filteredCards.length} cards encontrados</div>
                                 </div>
@@ -1445,9 +1454,10 @@
                                     {filteredCards.map(c => (
                                         <div key={c.id} onClick={() => { setCardForm({front: c.front, back: c.back, category: c.category, lesson: c.lesson||'', subcategory: c.subcategory||'', tags: c.tags||[]}); setEditingCardId(c.id); }} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${editingCardId === c.id ? 'bg-blue-900/30 border-blue-500 shadow-md' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
+                                                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                                                     <span className="text-blue-400 text-[10px] font-mono uppercase bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{c.category}</span>
-                                                    <span className="text-slate-400 text-[10px] font-mono uppercase truncate">{c.lesson}</span>
+                                                    <span className="text-slate-400 text-[10px] font-mono uppercase bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{c.lesson || 'Geral'}</span>
+                                                    <span className="text-slate-500 text-[10px] font-mono uppercase truncate px-1">{c.subcategory || 'Geral'}</span>
                                                 </div>
                                                 <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-90" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
                                             </div>
@@ -1469,9 +1479,10 @@
                                         {editingCardId && <span className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded font-mono border border-blue-700">ID: {editingCardId.substring(0,6)}...</span>}
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria (Category)</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.category} onChange={e=>setCardForm(prev=>({...prev, category: e.target.value}))}/></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula/Tópico (Lesson)</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.lesson} onChange={e=>setCardForm(prev=>({...prev, lesson: e.target.value}))}/></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Matéria</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.category} onChange={e=>setCardForm(prev=>({...prev, category: e.target.value}))}/></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Aula</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.lesson} onChange={e=>setCardForm(prev=>({...prev, lesson: e.target.value}))}/></div>
+                                        <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Tópico</label><input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none" value={cardForm.subcategory} onChange={e=>setCardForm(prev=>({...prev, subcategory: e.target.value}))}/></div>
                                     </div>
                                     
                                     <div className="flex-1 flex flex-col gap-4">
