@@ -96,7 +96,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, BrainCircuit, Sliders, Timer, TerminalSquare, ListTodo, CheckCircle, Circle, HelpCircle, Award, Hash } from "https://esm.sh/lucide-react@0.344.0?bundle";
+        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, BrainCircuit, Sliders, Timer, TerminalSquare, ListTodo, CheckCircle, Circle, HelpCircle, Award, Hash, Globe, AppWindow, Image as ImageIcon } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
             apiKey: "AIzaSyClIIJkYOmAvEKPtXvG-SIi9SzxQpaBN9s",
@@ -959,7 +959,7 @@
             );
         }
 
-        const AuthScreen = ({ onLogin, guestMode }) => {
+        const AuthScreen = ({ onLogin, guestMode, siteSettings }) => {
             const [isRegister, setIsRegister] = React.useState(false);
             const [email, setEmail] = React.useState("");
             const [password, setPassword] = React.useState("");
@@ -973,14 +973,20 @@
                     onLogin();
                 } catch (err) { alert("Erro: " + err.message); } finally { setLoading(false); }
             };
+            
+            // Fallback para o título
+            const displayTitle = siteSettings?.title || "L1 Cache v2.0";
+
             return (
                 <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
                     <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="w-full max-w-md glass p-8 rounded-2xl shadow-2xl relative z-10 animate-slide-up">
                         <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30"><BrainCircuit size={32} /></div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">L1 Cache <span className="text-blue-400">v2.0</span></h1>
+                            <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-blue-500/30">
+                                {siteSettings?.favicon ? <img src={siteSettings.favicon} alt="Logo" className="w-10 h-10 object-contain" /> : <BrainCircuit size={32} />}
+                            </div>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{displayTitle}</h1>
                             <p className="text-slate-400 text-sm">Algoritmos SM-2 & FSRS (I.A) nativos para retenção de ciências da computação.</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -1142,9 +1148,9 @@
         };
 
         // ============================================================================
-        // ADMIN PANEL - ATUALIZADO COM ABAS E CORREÇÕES NOS SIMULADOS
+        // ADMIN PANEL - COM NOVA ABA DE CONFIGURAÇÕES DO SITE
         // ============================================================================
-        const AdminPanel = ({ cards, quizzes, onExit }) => {
+        const AdminPanel = ({ cards, quizzes, onExit, siteSettings }) => {
             const [adminTab, setAdminTab] = React.useState('flashcards');
 
             // --- ESTADOS FLASHCARDS ---
@@ -1166,16 +1172,28 @@
             const [isBulkProcessing, setIsBulkProcessing] = React.useState(false);
 
             // --- ESTADOS SIMULADOS ---
-            // Simulado não usa lesson nem subcategory para evitar complexidade e seguir focado na matéria
             const [quizForm, setQuizForm] = React.useState({ question: '', options: ['', '', '', '', ''], correctIndex: 0, category: 'Sistemas Operacionais', tags: [], questionNumber: '' });
             const [quizEditingId, setQuizEditingId] = React.useState(null);
+
+            // --- ESTADOS CONFIGURAÇÕES DO SITE ---
+            const [settingsForm, setSettingsForm] = React.useState({ title: '', favicon: '' });
+            const [isSavingSettings, setIsSavingSettings] = React.useState(false);
+
+            React.useEffect(() => {
+                if (siteSettings) {
+                    setSettingsForm({
+                        title: siteSettings.title || '',
+                        favicon: siteSettings.favicon || ''
+                    });
+                }
+            }, [siteSettings]);
             
             const existingCategories = [...new Set([...cards, ...quizzes].map(c => normalize(c.category)))].filter(Boolean).sort();
             const existingLessons = [...new Set([...cards, ...quizzes].map(c => normalize(c.lesson || 'Conteúdo Geral')))].filter(Boolean).sort();
             const existingSubcategories = [...new Set([...cards, ...quizzes].map(c => normalize(c.subcategory || 'Geral')))].filter(Boolean).sort();
             const existingAdminTags = [...new Set([...cards, ...quizzes].flatMap(c => c.tags || []))].filter(Boolean).sort();
 
-            // --- LÓGICA FILTROS (Misto para as duas abas) ---
+            // --- LÓGICA FILTROS (Misto para as duas abas principais) ---
             const filterList = (list) => list.filter(c => {
                 const cCat = normalize(c.category).toLowerCase();
                 const cLess = normalize(c.lesson || 'Conteúdo Geral').toLowerCase();
@@ -1196,7 +1214,6 @@
             });
 
             const filteredCards = filterList(cards);
-            // Ordenar simulados no Admin pelo Número da Questão, depois pela categoria
             const filteredQuizzes = filterList(quizzes).sort((a, b) => {
                 const numA = a.questionNumber ? parseInt(a.questionNumber) : 9999;
                 const numB = b.questionNumber ? parseInt(b.questionNumber) : 9999;
@@ -1336,7 +1353,7 @@
                 if(confirm("Deletar este card de forma irreversível?")) await deleteDoc(doc(db, "cards", id)); 
             };
 
-            // --- LÓGICA SIMULADOS (ATUALIZADA) ---
+            // --- LÓGICA SIMULADOS ---
             const handleQuizOptionChange = (index, value) => {
                 const newOptions = [...quizForm.options];
                 newOptions[index] = value;
@@ -1356,14 +1373,13 @@
 
                 try {
                     const dataToSave = {
-                        text: quizForm.question, // Manteve-se 'text' por compatibilidade do banco
+                        text: quizForm.question, 
                         question: quizForm.question, 
                         options: quizForm.options,
                         correctIndex: quizForm.correctIndex,
                         category: normalize(quizForm.category || 'Geral'),
-                        questionNumber: quizForm.questionNumber ? parseInt(quizForm.questionNumber) : '', // Novo campo salvo
+                        questionNumber: quizForm.questionNumber ? parseInt(quizForm.questionNumber) : '', 
                         tags: quizForm.tags 
-                        // Lesson e subcategory foram omitidos propositalmente como solicitado
                     };
                     
                     if (quizEditingId) { await updateDoc(doc(db, "exams", quizEditingId), dataToSave); setQuizEditingId(null); } 
@@ -1393,6 +1409,19 @@
                 if(confirm("Deletar esta questão de simulado irreversivelmente?")) await deleteDoc(doc(db, "exams", id)); 
             };
 
+            // --- LÓGICA CONFIGURAÇÕES GLOBAIS ---
+            const handleSaveSiteSettings = async (e) => {
+                e.preventDefault();
+                setIsSavingSettings(true);
+                try {
+                    await setDoc(doc(db, "site_config", "global"), settingsForm, { merge: true });
+                    // Provide a visual success indication
+                    setTimeout(() => setIsSavingSettings(false), 500);
+                } catch (err) {
+                    alert("Erro ao salvar configurações do site: " + err.message);
+                    setIsSavingSettings(false);
+                }
+            };
 
             return (
                 <div className="glass p-6 rounded-2xl border border-slate-700 min-h-screen md:h-[calc(100vh-100px)] flex flex-col shadow-2xl animate-fade-in">
@@ -1408,12 +1437,15 @@
                         </div>
 
                         {/* TABS DE ADMINISTRAÇÃO */}
-                        <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 self-start md:self-auto">
-                            <button onClick={() => setAdminTab('flashcards')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${adminTab === 'flashcards' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 self-start md:self-auto overflow-x-auto max-w-full">
+                            <button onClick={() => setAdminTab('flashcards')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${adminTab === 'flashcards' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
                                 <Layers size={16}/> Flashcards
                             </button>
-                            <button onClick={() => setAdminTab('quizzes')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all ${adminTab === 'quizzes' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                            <button onClick={() => setAdminTab('quizzes')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${adminTab === 'quizzes' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
                                 <ListTodo size={16}/> Simulados
+                            </button>
+                            <button onClick={() => setAdminTab('site_settings')} className={`px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${adminTab === 'site_settings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                                <Globe size={16}/> Site App
                             </button>
                         </div>
 
@@ -1421,295 +1453,360 @@
                     </div>
 
                     <div className="flex-1 overflow-hidden flex flex-col">
-                        <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden h-full">
-                            
-                            {/* COLUNA ESQUERDA: LISTAGEM E FILTROS */}
-                            <div className="w-full md:w-[45%] lg:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-full">
-                                
-                                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
-                                    <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros Globais</span></div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
-                                            <option value="Todos">Todas Matérias</option>
-                                            {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                        </select>
-                                        <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 ${adminTab === 'quizzes' ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={adminTab === 'quizzes'}>
-                                            <option value="Todos">Todas Aulas</option>
-                                            {adminTab === 'flashcards' && existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
-                                        </select>
-                                        <select value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 ${adminTab === 'quizzes' ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={adminTab === 'quizzes'}>
-                                            <option value="Todos">Todos Tópicos</option>
-                                            {adminTab === 'flashcards' && existingSubcategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
-                                        </select>
-                                        <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500">
-                                            <option value="Todas">Qualquer Tag</option>
-                                            {existingAdminTags.map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
+                        
+                        {/* VIEW DA ABA DE CONFIGURAÇÕES GLOBAIS DO SITE */}
+                        {adminTab === 'site_settings' ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                                <form onSubmit={handleSaveSiteSettings} className="w-full max-w-2xl bg-slate-900/50 p-8 rounded-2xl border border-slate-700 shadow-2xl animate-slide-up flex flex-col">
+                                    <div className="text-center mb-8">
+                                        <div className="w-16 h-16 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-emerald-500/30">
+                                            <AppWindow size={32} />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-white mb-2">Estrutura do Site</h3>
+                                        <p className="text-sm text-slate-400">Modifique a identidade visual (Title e Favicon) de forma global. As alterações propagam instantaneamente para todos os alunos conectados.</p>
                                     </div>
-                                    
-                                    <div className="relative">
-                                        <input type="text" placeholder="Buscar no texto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 placeholder:text-slate-600"/>
-                                        <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
-                                    </div>
-                                    
-                                    <div className="flex justify-between items-center pt-2 border-t border-slate-800 mt-2">
-                                        {adminTab === 'flashcards' ? (
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={handleToggleAllFiltered} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-bold border transition-colors ${allFilteredSelected ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}>
-                                                    <ListChecks size={14} /> {allFilteredSelected ? 'Desmarcar Todos' : 'Selecionar Lote'}
-                                                </button>
+
+                                    <div className="space-y-6 flex-1">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Globe size={16} className="text-emerald-500" /> Título Principal da Aba (Title)</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full bg-slate-950 p-4 rounded-xl text-white border border-slate-700 focus:border-emerald-500 outline-none font-medium transition-colors" 
+                                                placeholder="Ex: L1 Cache - Engenharia de Software" 
+                                                value={settingsForm.title} 
+                                                onChange={e => setSettingsForm(prev => ({...prev, title: e.target.value}))} 
+                                            />
+                                            <p className="text-[10px] text-slate-500 ml-1">O nome que aparecerá nas abas do navegador e na tela de login.</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><ImageIcon size={16} className="text-emerald-500" /> URL do Favicon / Logo</label>
+                                            <input 
+                                                type="url" 
+                                                className="w-full bg-slate-950 p-4 rounded-xl text-white border border-slate-700 focus:border-emerald-500 outline-none font-mono text-sm transition-colors" 
+                                                placeholder="https://exemplo.com/logo.png" 
+                                                value={settingsForm.favicon} 
+                                                onChange={e => setSettingsForm(prev => ({...prev, favicon: e.target.value}))} 
+                                            />
+                                            <p className="text-[10px] text-slate-500 ml-1">Insira uma URL de imagem válida (PNG, ICO, SVG ou JPG). Esta imagem substituirá o ícone do cérebro no login.</p>
+                                        </div>
+                                        
+                                        {/* Preview Area */}
+                                        <div className="mt-8 p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-4">
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest min-w-max">Preview Atual:</span>
+                                            <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-lg border border-slate-800 truncate max-w-full">
+                                                {settingsForm.favicon ? (
+                                                    <img src={settingsForm.favicon} alt="Preview" className="w-5 h-5 object-contain" onError={(e) => {e.target.style.display='none'}} onLoad={(e) => {e.target.style.display='block'}} />
+                                                ) : (
+                                                    <BrainCircuit size={20} className="text-slate-500" />
+                                                )}
+                                                <span className="text-slate-300 text-sm truncate">{settingsForm.title || "L1 Cache v2.0"}</span>
                                             </div>
-                                        ) : <div></div>}
-                                        <span className="font-bold text-xs bg-slate-950 px-2 py-1 rounded border border-slate-800 text-slate-400">{adminTab === 'flashcards' ? filteredCards.length : filteredQuizzes.length} Itens</span>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSavingSettings} 
+                                        className="w-full mt-8 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white font-bold p-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex justify-center gap-2 items-center text-lg"
+                                    >
+                                        {isSavingSettings ? <RotateCcw className="animate-spin" size={20} /> : <Save size={20} />} 
+                                        {isSavingSettings ? 'Propagando Alterações...' : 'Salvar Alterações Globais'}
+                                    </button>
+                                </form>
+                            </div>
+                        ) : (
+                            /* VIEW ORIGINAL (FLASHCARDS E SIMULADOS COM DUAS COLUNAS) */
+                            <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden h-full">
+                                
+                                {/* COLUNA ESQUERDA: LISTAGEM E FILTROS */}
+                                <div className="w-full md:w-[45%] lg:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-700/50 pb-4 md:pr-4 h-64 md:h-full">
+                                    
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 mb-3 flex-shrink-0 space-y-3">
+                                        <div className="flex items-center gap-2"><Filter size={16} className="text-slate-500" /><span className="text-xs text-slate-400 font-bold uppercase">Filtros Globais</span></div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500">
+                                                <option value="Todos">Todas Matérias</option>
+                                                {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            </select>
+                                            <select value={filterLesson} onChange={(e) => setFilterLesson(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-blue-500 ${adminTab === 'quizzes' ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={adminTab === 'quizzes'}>
+                                                <option value="Todos">Todas Aulas</option>
+                                                {adminTab === 'flashcards' && existingLessons.map(l => <option key={l} value={l}>{l}</option>)}
+                                            </select>
+                                            <select value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500 ${adminTab === 'quizzes' ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={adminTab === 'quizzes'}>
+                                                <option value="Todos">Todos Tópicos</option>
+                                                {adminTab === 'flashcards' && existingSubcategories.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                            </select>
+                                            <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 outline-none focus:border-purple-500">
+                                                <option value="Todas">Qualquer Tag</option>
+                                                {existingAdminTags.map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                        </div>
+                                        
+                                        <div className="relative">
+                                            <input type="text" placeholder="Buscar no texto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg p-2 pl-8 outline-none focus:border-blue-500 placeholder:text-slate-600"/>
+                                            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500 pointer-events-none"/>
+                                        </div>
+                                        
+                                        <div className="flex justify-between items-center pt-2 border-t border-slate-800 mt-2">
+                                            {adminTab === 'flashcards' ? (
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={handleToggleAllFiltered} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-bold border transition-colors ${allFilteredSelected ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}>
+                                                        <ListChecks size={14} /> {allFilteredSelected ? 'Desmarcar Todos' : 'Selecionar Lote'}
+                                                    </button>
+                                                </div>
+                                            ) : <div></div>}
+                                            <span className="font-bold text-xs bg-slate-950 px-2 py-1 rounded border border-slate-800 text-slate-400">{adminTab === 'flashcards' ? filteredCards.length : filteredQuizzes.length} Itens</span>
+                                        </div>
+                                    </div>
+
+                                    {/* LISTA DE ITENS */}
+                                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                        {adminTab === 'flashcards' ? (
+                                            <>
+                                                {filteredCards.map(c => {
+                                                    const isSelected = selectedCardIds.has(c.id);
+                                                    return (
+                                                        <div key={c.id} onClick={() => handleEditCard(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${isSelected ? 'bg-blue-900/30 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : editingId === c.id && selectedCardIds.size === 0 ? 'bg-slate-800 border-slate-500' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
+                                                            <div className="pt-0.5" onClick={(e) => { e.stopPropagation(); handleToggleSelection(c.id); }}>
+                                                                <input type="checkbox" className="admin-checkbox" checked={isSelected} readOnly />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex flex-col mb-1">
+                                                                    <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate">{c.category}</span>
+                                                                    <span className="text-slate-500 text-[10px] font-bold truncate">{c.lesson} &gt; {c.subcategory || 'Geral'}</span>
+                                                                </div>
+                                                                <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
+                                                            </div>
+                                                            {selectedCardIds.size === 0 && (
+                                                                <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button onClick={(e) => handleDeleteCard(c.id, e)} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors h-fit" title="Excluir"><Trash2 size={14}/></button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                                {filteredCards.length === 0 && <p className="text-center text-slate-500 mt-10 text-sm">Nenhum flashcard encontrado.</p>}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {filteredQuizzes.map(q => (
+                                                    <div key={q.id} onClick={() => handleEditQuiz(q)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${quizEditingId === q.id ? 'bg-slate-800 border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.1)]' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex flex-col mb-1">
+                                                                <span className="text-purple-400 text-[10px] font-mono uppercase tracking-wider opacity-90 truncate flex items-center gap-1">
+                                                                    {q.category} 
+                                                                    <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded ml-1 border border-purple-500/30 font-bold">
+                                                                        {q.questionNumber ? `Q. ${q.questionNumber}` : '?'}
+                                                                    </span>
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (q.question || q.text || '').replace(/<[^>]*>?/gm, '')}}></div>
+                                                        </div>
+                                                        <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={(e) => handleDeleteQuiz(q.id, e)} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors h-fit" title="Excluir"><Trash2 size={14}/></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {filteredQuizzes.length === 0 && <p className="text-center text-slate-500 mt-10 text-sm">Nenhum simulado encontrado.</p>}
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* LISTA DE ITENS DEPENDENDO DA ABA */}
-                                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                    {adminTab === 'flashcards' ? (
-                                        <>
-                                            {filteredCards.map(c => {
-                                                const isSelected = selectedCardIds.has(c.id);
-                                                return (
-                                                    <div key={c.id} onClick={() => handleEditCard(c)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${isSelected ? 'bg-blue-900/30 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : editingId === c.id && selectedCardIds.size === 0 ? 'bg-slate-800 border-slate-500' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
-                                                        <div className="pt-0.5" onClick={(e) => { e.stopPropagation(); handleToggleSelection(c.id); }}>
-                                                            <input type="checkbox" className="admin-checkbox" checked={isSelected} readOnly />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex flex-col mb-1">
-                                                                <span className="text-blue-400 text-[10px] font-mono uppercase tracking-wider opacity-70 truncate">{c.category}</span>
-                                                                <span className="text-slate-500 text-[10px] font-bold truncate">{c.lesson} &gt; {c.subcategory || 'Geral'}</span>
-                                                            </div>
-                                                            <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (c.front || '').replace(/<[^>]*>?/gm, '')}}></div>
-                                                        </div>
-                                                        {selectedCardIds.size === 0 && (
-                                                            <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button onClick={(e) => handleDeleteCard(c.id, e)} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors h-fit" title="Excluir"><Trash2 size={14}/></button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                            {filteredCards.length === 0 && <p className="text-center text-slate-500 mt-10 text-sm">Nenhum flashcard encontrado.</p>}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {filteredQuizzes.map(q => (
-                                                <div key={q.id} onClick={() => handleEditQuiz(q)} className={`p-3 rounded-lg text-sm border cursor-pointer transition-all group flex gap-3 ${quizEditingId === q.id ? 'bg-slate-800 border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.1)]' : 'bg-slate-900/40 border-slate-800 hover:border-slate-600'}`}>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex flex-col mb-1">
-                                                            <span className="text-purple-400 text-[10px] font-mono uppercase tracking-wider opacity-90 truncate flex items-center gap-1">
-                                                                {q.category} 
-                                                                <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded ml-1 border border-purple-500/30 font-bold">
-                                                                    {q.questionNumber ? `Q. ${q.questionNumber}` : '?'}
-                                                                </span>
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-slate-300 font-medium line-clamp-2 text-xs opacity-80" dangerouslySetInnerHTML={{__html: (q.question || q.text || '').replace(/<[^>]*>?/gm, '')}}></div>
-                                                    </div>
-                                                    <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={(e) => handleDeleteQuiz(q.id, e)} className="text-red-400 hover:bg-red-900/30 p-1.5 rounded-lg transition-colors h-fit" title="Excluir"><Trash2 size={14}/></button>
-                                                    </div>
+                                {/* COLUNA DIREITA: FORMULÁRIOS (FLASHCARDS/SIMULADOS) */}
+                                <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0 h-full">
+                                    
+                                    {adminTab === 'flashcards' && selectedCardIds.size > 0 && (
+                                        /* --- MODO EDIÇÃO EM MASSA (LOTE) PARA FLASHCARDS --- */
+                                        <form onSubmit={handleBulkSubmit} className="space-y-4 bg-amber-900/10 border border-amber-500/30 p-4 rounded-xl h-full flex flex-col relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
+                                            
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-amber-500 flex items-center gap-2"><CheckSquare size={20}/> Edição em Lote</h3>
+                                                    <p className="text-sm text-slate-400 mt-1">Modificando <strong>{selectedCardIds.size}</strong> flashcards selecionados.</p>
                                                 </div>
-                                            ))}
-                                            {filteredQuizzes.length === 0 && <p className="text-center text-slate-500 mt-10 text-sm">Nenhum simulado encontrado.</p>}
-                                        </>
+                                                <button type="button" onClick={() => setSelectedCardIds(new Set())} className="text-slate-400 hover:text-white px-3 py-1 bg-slate-800 rounded-lg text-sm transition-colors border border-slate-700">Cancelar</button>
+                                            </div>
+
+                                            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-2 text-xs text-slate-300 flex items-start gap-3">
+                                                <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                                                <p>Deixe o campo vazio se não quiser alterar a propriedade. Preencher sobrescreverá todos selecionados.</p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0 border-b border-slate-800 pb-4">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Matéria para</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.category} onChange={e => setBulkForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Aula para</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.lesson} onChange={e => setBulkForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Tópico para</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.subcategory} onChange={e => setBulkForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                                                {/* ADICIONAR TAGS LOTE */}
+                                                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex flex-col">
+                                                    <label className="text-xs font-bold text-emerald-400 uppercase ml-1 mb-2 flex items-center gap-1"><Plus size={14}/> Acoplar Novas Tags</label>
+                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                        {bulkForm.tagsToAdd.map(t => (
+                                                            <span key={t} className="bg-emerald-900/60 text-emerald-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-emerald-500/40">
+                                                                +{t} <button type="button" onClick={() => setBulkForm(prev => ({...prev, tagsToAdd: prev.tagsToAdd.filter(tag => tag !== t)}))} className="hover:text-emerald-100 transition-colors"><X size={14}/></button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-emerald-500 outline-none font-mono text-sm mt-auto placeholder:text-slate-600" placeholder="Ex: revisar (Enter)" value={bulkTagAddInput} onChange={e => setBulkTagAddInput(e.target.value)} onKeyDown={handleAddBulkTagAdd} />
+                                                </div>
+
+                                                {/* REMOVER TAGS LOTE */}
+                                                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex flex-col">
+                                                    <label className="text-xs font-bold text-red-400 uppercase ml-1 mb-2 flex items-center gap-1"><Trash2 size={14}/> Remover Tags</label>
+                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                        {bulkForm.tagsToRemove.map(t => (
+                                                            <span key={t} className="bg-red-900/60 text-red-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-red-500/40">
+                                                                -{t} <button type="button" onClick={() => setBulkForm(prev => ({...prev, tagsToRemove: prev.tagsToRemove.filter(tag => tag !== t)}))} className="hover:text-red-100 transition-colors"><X size={14}/></button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-red-500 outline-none font-mono text-sm mt-auto placeholder:text-slate-600" placeholder="Ex: revisar (Enter)" value={bulkTagRemoveInput} onChange={e => setBulkTagRemoveInput(e.target.value)} onKeyDown={handleAddBulkTagRemove} />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="pt-4 flex-shrink-0 mt-auto">
+                                                <button type="submit" disabled={isBulkProcessing} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold p-4 rounded-xl shadow-lg shadow-amber-900/20 transition-all flex justify-center gap-2 items-center text-lg">
+                                                    {isBulkProcessing ? <RotateCcw className="animate-spin" size={20} /> : <Zap size={20} />} 
+                                                    {isBulkProcessing ? 'Executando Transações...' : `Gravar Modificações em ${selectedCardIds.size} Cards`}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+
+                                    {adminTab === 'flashcards' && selectedCardIds.size === 0 && (
+                                        /* --- MODO CRIAÇÃO/EDIÇÃO ÚNICA (FLASHCARDS) --- */
+                                        <form onSubmit={handleSaveCard} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col animate-fade-in">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Pencil size={18} className="text-blue-500"/>
+                                                <h3 className="text-lg font-bold text-white">{editingId ? 'Editar Flashcard' : 'Criar Novo Flashcard'}</h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Matéria</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Sistemas Operacionais" value={form.category} onChange={e => setForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
+                                                    <datalist id="category-suggestions">{existingCategories.map((cat, i) => <option key={i} value={cat} />)}</datalist>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Aula / Unidade</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Aula 01" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
+                                                    <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={l} value={l} />)}</datalist>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Tópico</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Conceitos Básicos" value={form.subcategory} onChange={e => setForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
+                                                    <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={sub} value={sub} />)}</datalist>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex-shrink-0">
+                                                <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Tags (Enter)</label>
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {form.tags.map(t => (
+                                                        <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
+                                                            #{t} <button type="button" onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Nova tag" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={(e) => handleAddTag(e, false)} list="tag-suggestions" />
+                                                <datalist id="tag-suggestions">{existingAdminTags.map((t, i) => <option key={t} value={t} />)}</datalist>
+                                            </div>
+
+                                            <div className="flex-1 min-h-[300px] flex flex-col gap-4">
+                                                <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Input: Pergunta</label><RichTextEditor value={form.front} onChange={(val) => setForm(prev => ({...prev, front: val}))} /></div>
+                                                <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Output: Resposta</label><RichTextEditor value={form.back} onChange={(val) => setForm(prev => ({...prev, back: val}))} /></div>
+                                            </div>
+                                            
+                                            <div className="flex gap-3 pt-4 border-t border-slate-700 flex-shrink-0 mt-auto">
+                                                {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm(prev => ({ ...prev, front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"><RotateCcw size={16}/> Cancelar</button>)}
+                                                <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex justify-center gap-2 items-center">{editingId ? <><Save size={18} /> Atualizar Card</> : <><Plus size={18} /> Inserir Flashcard</>}</button>
+                                            </div>
+                                        </form>
+                                    )}
+
+                                    {adminTab === 'quizzes' && (
+                                        /* --- MODO CRIAÇÃO/EDIÇÃO ÚNICA (SIMULADOS) FOCADO E LIMPO --- */
+                                        <form onSubmit={handleSaveQuiz} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col animate-fade-in">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <ListTodo size={18} className="text-purple-500"/>
+                                                <h3 className="text-lg font-bold text-white">{quizEditingId ? 'Editar Questão (Simulado)' : 'Criar Questão (Simulado)'}</h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Matéria (Geral)</label>
+                                                    <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm" placeholder="Ex: Sistemas Operacionais" value={quizForm.category} onChange={e => setQuizForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-emerald-400 uppercase ml-1 flex items-center gap-1 block"><Hash size={12}/> Número da Questão</label>
+                                                    <input type="number" min="1" className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-emerald-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Ex: 1" value={quizForm.questionNumber} onChange={e => setQuizForm(prev => ({...prev, questionNumber: e.target.value}))} />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex-shrink-0">
+                                                <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Tags da Questão</label>
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {quizForm.tags.map(t => (
+                                                        <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
+                                                            #{t} <button type="button" onClick={() => removeTag(t, true)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Nova tag" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={(e) => handleAddTag(e, true)} list="tag-suggestions" />
+                                            </div>
+
+                                            <div className="flex-1 min-h-[200px] flex flex-col gap-4">
+                                                <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Enunciado da Questão</label>
+                                                    <RichTextEditor value={quizForm.question} onChange={(val) => setQuizForm(prev => ({...prev, question: val}))} />
+                                                </div>
+                                            </div>
+
+                                            {/* Alternativas */}
+                                            <div className="flex-shrink-0 space-y-3 bg-slate-900/30 p-4 rounded-xl border border-slate-700/50">
+                                                <label className="text-xs font-bold text-slate-400 uppercase ml-1 flex items-center gap-2"><HelpCircle size={14}/> Alternativas (Padrão Anhanguera - 1 Correta)</label>
+                                                <p className="text-[10px] text-slate-500 ml-1 -mt-2 mb-2">Preencha as alternativas e marque o círculo verde na única opção que representa o gabarito.</p>
+                                                
+                                                {[0, 1, 2, 3, 4].map(idx => (
+                                                    <div key={idx} className="flex items-center gap-3">
+                                                        <span className="font-bold text-slate-500 w-4 text-center">{String.fromCharCode(65 + idx)}</span>
+                                                        <button type="button" onClick={() => setQuizForm(prev => ({...prev, correctIndex: idx}))} className="mt-1 focus:outline-none transition-colors" title="Marcar como Resposta Correta">
+                                                            {quizForm.correctIndex === idx ? <CheckCircle size={22} className="text-emerald-500 bg-emerald-500/10 rounded-full" /> : <Circle size={22} className="text-slate-600 hover:text-slate-400" />}
+                                                        </button>
+                                                        <input 
+                                                            type="text" 
+                                                            className={`flex-1 bg-slate-800 p-3 rounded-lg text-white outline-none text-sm transition-colors border ${quizForm.correctIndex === idx ? 'border-emerald-500/50 focus:border-emerald-500 bg-emerald-950/20' : 'border-slate-700 focus:border-purple-500 placeholder:text-slate-600'}`}
+                                                            placeholder={`Alternativa ${String.fromCharCode(65 + idx)} ${idx > 1 ? '(Deixe em branco se houverem menos opções)' : ''}`} 
+                                                            value={quizForm.options[idx] || ''} 
+                                                            onChange={(e) => handleQuizOptionChange(idx, e.target.value)}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            <div className="flex gap-3 pt-4 border-t border-slate-700 flex-shrink-0 mt-auto">
+                                                {quizEditingId && (<button type="button" onClick={() => { setQuizEditingId(null); setQuizForm(prev => ({ ...prev, question: '', options: ['', '', '', '', ''], correctIndex: 0, category: 'Sistemas Operacionais', tags: [], questionNumber: '' })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"><RotateCcw size={16}/> Cancelar</button>)}
+                                                <button type="submit" className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-purple-900/20 transition-all flex justify-center gap-2 items-center">{quizEditingId ? <><Save size={18} /> Atualizar Questão</> : <><Plus size={18} /> Inserir Questão no Banco de Exames</>}</button>
+                                            </div>
+                                        </form>
                                     )}
                                 </div>
                             </div>
-
-                            {/* COLUNA DIREITA: FORMULÁRIOS (DEPENDE DA ABA) */}
-                            <div className="flex-1 overflow-y-auto pl-0 md:pl-2 custom-scrollbar pb-20 md:pb-0 h-full">
-                                
-                                {adminTab === 'flashcards' && selectedCardIds.size > 0 && (
-                                    /* --- MODO EDIÇÃO EM MASSA (LOTE) PARA FLASHCARDS --- */
-                                    <form onSubmit={handleBulkSubmit} className="space-y-4 bg-amber-900/10 border border-amber-500/30 p-4 rounded-xl h-full flex flex-col relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
-                                        
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <h3 className="text-lg font-bold text-amber-500 flex items-center gap-2"><CheckSquare size={20}/> Edição em Lote</h3>
-                                                <p className="text-sm text-slate-400 mt-1">Modificando <strong>{selectedCardIds.size}</strong> flashcards selecionados.</p>
-                                            </div>
-                                            <button type="button" onClick={() => setSelectedCardIds(new Set())} className="text-slate-400 hover:text-white px-3 py-1 bg-slate-800 rounded-lg text-sm transition-colors border border-slate-700">Cancelar</button>
-                                        </div>
-
-                                        <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-2 text-xs text-slate-300 flex items-start gap-3">
-                                            <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
-                                            <p>Deixe o campo vazio se não quiser alterar a propriedade. Preencher sobrescreverá todos selecionados.</p>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0 border-b border-slate-800 pb-4">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Matéria para</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.category} onChange={e => setBulkForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Aula para</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.lesson} onChange={e => setBulkForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-amber-500 uppercase ml-1 block">Alterar Tópico para</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-amber-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Manter atual" value={bulkForm.subcategory} onChange={e => setBulkForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                                            {/* ADICIONAR TAGS LOTE */}
-                                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex flex-col">
-                                                <label className="text-xs font-bold text-emerald-400 uppercase ml-1 mb-2 flex items-center gap-1"><Plus size={14}/> Acoplar Novas Tags</label>
-                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                    {bulkForm.tagsToAdd.map(t => (
-                                                        <span key={t} className="bg-emerald-900/60 text-emerald-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-emerald-500/40">
-                                                            +{t} <button type="button" onClick={() => setBulkForm(prev => ({...prev, tagsToAdd: prev.tagsToAdd.filter(tag => tag !== t)}))} className="hover:text-emerald-100 transition-colors"><X size={14}/></button>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                                <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-emerald-500 outline-none font-mono text-sm mt-auto placeholder:text-slate-600" placeholder="Ex: revisar (Enter)" value={bulkTagAddInput} onChange={e => setBulkTagAddInput(e.target.value)} onKeyDown={handleAddBulkTagAdd} />
-                                            </div>
-
-                                            {/* REMOVER TAGS LOTE */}
-                                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex flex-col">
-                                                <label className="text-xs font-bold text-red-400 uppercase ml-1 mb-2 flex items-center gap-1"><Trash2 size={14}/> Remover Tags</label>
-                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                    {bulkForm.tagsToRemove.map(t => (
-                                                        <span key={t} className="bg-red-900/60 text-red-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-red-500/40">
-                                                            -{t} <button type="button" onClick={() => setBulkForm(prev => ({...prev, tagsToRemove: prev.tagsToRemove.filter(tag => tag !== t)}))} className="hover:text-red-100 transition-colors"><X size={14}/></button>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                                <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-red-500 outline-none font-mono text-sm mt-auto placeholder:text-slate-600" placeholder="Ex: revisar (Enter)" value={bulkTagRemoveInput} onChange={e => setBulkTagRemoveInput(e.target.value)} onKeyDown={handleAddBulkTagRemove} />
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="pt-4 flex-shrink-0 mt-auto">
-                                            <button type="submit" disabled={isBulkProcessing} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold p-4 rounded-xl shadow-lg shadow-amber-900/20 transition-all flex justify-center gap-2 items-center text-lg">
-                                                {isBulkProcessing ? <RotateCcw className="animate-spin" size={20} /> : <Zap size={20} />} 
-                                                {isBulkProcessing ? 'Executando Transações...' : `Gravar Modificações em ${selectedCardIds.size} Cards`}
-                                            </button>
-                                        </div>
-                                    </form>
-                                )}
-
-                                {adminTab === 'flashcards' && selectedCardIds.size === 0 && (
-                                    /* --- MODO CRIAÇÃO/EDIÇÃO ÚNICA (FLASHCARDS) --- */
-                                    <form onSubmit={handleSaveCard} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col animate-fade-in">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Pencil size={18} className="text-blue-500"/>
-                                            <h3 className="text-lg font-bold text-white">{editingId ? 'Editar Flashcard' : 'Criar Novo Flashcard'}</h3>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Matéria</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Sistemas Operacionais" value={form.category} onChange={e => setForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
-                                                <datalist id="category-suggestions">{existingCategories.map((cat, i) => <option key={i} value={cat} />)}</datalist>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Aula / Unidade</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Aula 01" value={form.lesson} onChange={e => setForm(prev => ({...prev, lesson: e.target.value}))} list="lesson-suggestions" />
-                                                <datalist id="lesson-suggestions">{existingLessons.map((l, i) => <option key={l} value={l} />)}</datalist>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Tópico</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-blue-500 outline-none font-mono text-sm" placeholder="Conceitos Básicos" value={form.subcategory} onChange={e => setForm(prev => ({...prev, subcategory: e.target.value}))} list="subcategory-suggestions" />
-                                                <datalist id="subcategory-suggestions">{existingSubcategories.map((sub, i) => <option key={sub} value={sub} />)}</datalist>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex-shrink-0">
-                                            <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Tags (Enter)</label>
-                                            <div className="flex flex-wrap gap-2 mb-2">
-                                                {form.tags.map(t => (
-                                                    <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
-                                                        #{t} <button type="button" onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Nova tag" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={(e) => handleAddTag(e, false)} list="tag-suggestions" />
-                                            <datalist id="tag-suggestions">{existingAdminTags.map((t, i) => <option key={t} value={t} />)}</datalist>
-                                        </div>
-
-                                        <div className="flex-1 min-h-[300px] flex flex-col gap-4">
-                                            <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Input: Pergunta</label><RichTextEditor value={form.front} onChange={(val) => setForm(prev => ({...prev, front: val}))} /></div>
-                                            <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Output: Resposta</label><RichTextEditor value={form.back} onChange={(val) => setForm(prev => ({...prev, back: val}))} /></div>
-                                        </div>
-                                        
-                                        <div className="flex gap-3 pt-4 border-t border-slate-700 flex-shrink-0 mt-auto">
-                                            {editingId && (<button type="button" onClick={() => { setEditingId(null); setForm(prev => ({ ...prev, front: '', back: '', category: 'Geral', lesson: 'Conteúdo Geral', subcategory: '', tags: [] })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"><RotateCcw size={16}/> Cancelar</button>)}
-                                            <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-blue-900/20 transition-all flex justify-center gap-2 items-center">{editingId ? <><Save size={18} /> Atualizar Card</> : <><Plus size={18} /> Inserir Flashcard</>}</button>
-                                        </div>
-                                    </form>
-                                )}
-
-                                {adminTab === 'quizzes' && (
-                                    /* --- MODO CRIAÇÃO/EDIÇÃO ÚNICA (SIMULADOS) FOCADO E LIMPO --- */
-                                    <form onSubmit={handleSaveQuiz} className="space-y-4 bg-slate-900/20 p-2 rounded-xl h-full flex flex-col animate-fade-in">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <ListTodo size={18} className="text-purple-500"/>
-                                            <h3 className="text-lg font-bold text-white">{quizEditingId ? 'Editar Questão (Simulado)' : 'Criar Questão (Simulado)'}</h3>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block">Matéria (Geral)</label>
-                                                <input className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm" placeholder="Ex: Sistemas Operacionais" value={quizForm.category} onChange={e => setQuizForm(prev => ({...prev, category: e.target.value}))} list="category-suggestions" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-emerald-400 uppercase ml-1 flex items-center gap-1 block"><Hash size={12}/> Número da Questão</label>
-                                                <input type="number" min="1" className="w-full bg-slate-800 p-3 rounded-lg text-white border border-slate-700 focus:border-emerald-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Ex: 1" value={quizForm.questionNumber} onChange={e => setQuizForm(prev => ({...prev, questionNumber: e.target.value}))} />
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex-shrink-0">
-                                            <label className="text-xs font-bold text-purple-400 uppercase ml-1 mb-2 flex items-center gap-1"><Tag size={14}/> Tags da Questão</label>
-                                            <div className="flex flex-wrap gap-2 mb-2">
-                                                {quizForm.tags.map(t => (
-                                                    <span key={t} className="bg-purple-900/60 text-purple-300 px-3 py-1 rounded-md text-sm flex items-center gap-2 border border-purple-500/40">
-                                                        #{t} <button type="button" onClick={() => removeTag(t, true)} className="hover:text-red-400 transition-colors"><X size={14}/></button>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <input type="text" className="w-full bg-slate-900 p-3 rounded-lg text-white border border-slate-700 focus:border-purple-500 outline-none font-mono text-sm placeholder:text-slate-600" placeholder="Nova tag" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={(e) => handleAddTag(e, true)} list="tag-suggestions" />
-                                        </div>
-
-                                        <div className="flex-1 min-h-[200px] flex flex-col gap-4">
-                                            <div className="flex-1 flex flex-col"><label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Enunciado da Questão</label>
-                                                <RichTextEditor value={quizForm.question} onChange={(val) => setQuizForm(prev => ({...prev, question: val}))} />
-                                            </div>
-                                        </div>
-
-                                        {/* Alternativas */}
-                                        <div className="flex-shrink-0 space-y-3 bg-slate-900/30 p-4 rounded-xl border border-slate-700/50">
-                                            <label className="text-xs font-bold text-slate-400 uppercase ml-1 flex items-center gap-2"><HelpCircle size={14}/> Alternativas (Padrão Anhanguera - 1 Correta)</label>
-                                            <p className="text-[10px] text-slate-500 ml-1 -mt-2 mb-2">Preencha as alternativas e marque o círculo verde na única opção que representa o gabarito.</p>
-                                            
-                                            {[0, 1, 2, 3, 4].map(idx => (
-                                                <div key={idx} className="flex items-center gap-3">
-                                                    <span className="font-bold text-slate-500 w-4 text-center">{String.fromCharCode(65 + idx)}</span>
-                                                    <button type="button" onClick={() => setQuizForm(prev => ({...prev, correctIndex: idx}))} className="mt-1 focus:outline-none transition-colors" title="Marcar como Resposta Correta">
-                                                        {quizForm.correctIndex === idx ? <CheckCircle size={22} className="text-emerald-500 bg-emerald-500/10 rounded-full" /> : <Circle size={22} className="text-slate-600 hover:text-slate-400" />}
-                                                    </button>
-                                                    <input 
-                                                        type="text" 
-                                                        className={`flex-1 bg-slate-800 p-3 rounded-lg text-white outline-none text-sm transition-colors border ${quizForm.correctIndex === idx ? 'border-emerald-500/50 focus:border-emerald-500 bg-emerald-950/20' : 'border-slate-700 focus:border-purple-500 placeholder:text-slate-600'}`}
-                                                        placeholder={`Alternativa ${String.fromCharCode(65 + idx)} ${idx > 1 ? '(Deixe em branco se houverem menos opções)' : ''}`} 
-                                                        value={quizForm.options[idx] || ''} 
-                                                        onChange={(e) => handleQuizOptionChange(idx, e.target.value)}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                        
-                                        <div className="flex gap-3 pt-4 border-t border-slate-700 flex-shrink-0 mt-auto">
-                                            {quizEditingId && (<button type="button" onClick={() => { setQuizEditingId(null); setQuizForm(prev => ({ ...prev, question: '', options: ['', '', '', '', ''], correctIndex: 0, category: 'Sistemas Operacionais', tags: [], questionNumber: '' })); }} className="w-1/3 bg-slate-700 hover:bg-slate-600 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"><RotateCcw size={16}/> Cancelar</button>)}
-                                            <button type="submit" className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-bold p-3 rounded-lg shadow-lg shadow-purple-900/20 transition-all flex justify-center gap-2 items-center">{quizEditingId ? <><Save size={18} /> Atualizar Questão</> : <><Plus size={18} /> Inserir Questão no Banco de Exames</>}</button>
-                                        </div>
-                                    </form>
-                                )}
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             );
@@ -1755,7 +1852,6 @@
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Removido o card de 'Simulado Global' a pedido. Todas as matérias agora utilizam o visual principal dele. */}
                         {Object.values(categoriesMap).sort((a,b) => a.name.localeCompare(b.name)).map(catInfo => (
                             <div 
                                 key={catInfo.name}
@@ -1906,17 +2002,20 @@
             )
         };
 
-
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [isAdmin, setIsAdmin] = React.useState(false);
             const [view, setView] = React.useState("loading"); 
             const [cards, setCards] = React.useState([]);
-            const [quizzes, setQuizzes] = React.useState([]); // ESTADO DOS SIMULADOS
+            const [quizzes, setQuizzes] = React.useState([]);
             const [reviews, setReviews] = React.useState({});
             const [userStats, setUserStats] = React.useState(null);
+            
+            // --- NOVO ESTADO: CONFIGURAÇÕES GLOBAIS DO SITE ---
+            const [siteSettings, setSiteSettings] = React.useState({ title: '', favicon: '' });
+            
             const [studyQueue, setStudyQueue] = React.useState([]);
-            const [quizQueue, setQuizQueue] = React.useState([]); // FILA DO SIMULADO
+            const [quizQueue, setQuizQueue] = React.useState([]);
             const [customStudyOpen, setCustomStudyOpen] = React.useState(false);
             const [settingsOpen, setSettingsOpen] = React.useState(false);
             
@@ -1937,6 +2036,38 @@
 
                 return () => unsubAuth();
             }, []);
+
+            // --- NOVO useEffect: BUSCAR CONFIGURAÇÕES GLOBAIS DA COLEÇÃO ---
+            React.useEffect(() => {
+                if (!user) return; // Evita erro de permissão (Missing permissions) antes do login
+
+                const unsubSettings = onSnapshot(doc(db, "site_config", "global"), (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        setSiteSettings(data);
+                        
+                        // Aplica o título em tempo real
+                        if (data.title) {
+                            document.title = data.title;
+                        } else {
+                            document.title = "L1 Cache (FSRS Engine v2.0)";
+                        }
+
+                        // Aplica o Favicon em tempo real injetando a tag no <head>
+                        if (data.favicon) {
+                            let link = document.querySelector("link[rel~='icon']");
+                            if (!link) {
+                                link = document.createElement('link');
+                                link.rel = 'icon';
+                                document.getElementsByTagName('head')[0].appendChild(link);
+                            }
+                            link.href = data.favicon;
+                        }
+                    }
+                }, (error) => console.error("Erro site_config onSnapshot:", error));
+
+                return () => unsubSettings();
+            }, [user]);
 
             React.useEffect(() => {
                 if (!user) return; 
@@ -1964,7 +2095,7 @@
                             id: doc.id, ...data,
                             question: data.text || data.question || '', 
                             category: normalize(data.category || 'Sem Categoria'), 
-                            questionNumber: data.questionNumber || '', // Puxando o número da questão
+                            questionNumber: data.questionNumber || '', 
                             tags: Array.isArray(data.tags) ? data.tags : [] 
                         };
                     });
@@ -2097,15 +2228,12 @@
                 setView("study");
             };
 
-            // START QUIZ ALUNO
             const handleStartQuiz = (category) => {
                 let sessionQuizzes = quizzes;
                 if (category !== 'All') {
-                    // Match case insensitive para garantir que acha a matéria certa
                     sessionQuizzes = quizzes.filter(q => normalize(q.category).toLowerCase() === normalize(category).toLowerCase());
                 }
                 
-                // Ordenar pelo NÚMERO DA QUESTÃO crescentemente, em vez de ser aleatório
                 sessionQuizzes = sessionQuizzes.sort((a, b) => {
                     const numA = a.questionNumber ? parseInt(a.questionNumber) : 9999;
                     const numB = b.questionNumber ? parseInt(b.questionNumber) : 9999;
@@ -2132,13 +2260,16 @@
             }
 
             if (view === "auth") {
-                return <AuthScreen onLogin={() => setView("decks")} guestMode={() => { signInAnonymously(auth).then(() => setView("decks")).catch(err => alert("Erro: " + err.message)); }} />;
+                return <AuthScreen onLogin={() => setView("decks")} guestMode={() => { signInAnonymously(auth).then(() => setView("decks")).catch(err => alert("Erro: " + err.message)); }} siteSettings={siteSettings} />;
             }
 
             const structure = getDecksStructure();
             let totalDue = 0;
             if(user) Object.values(structure).forEach(cat => { totalDue += (cat.stats.n + cat.stats.l + cat.stats.r); });
             const allTags = [...new Set(cards.flatMap(c => c.tags || []))].sort();
+            
+            // Variável pro UI limpo e coerente na navbar
+            const displayTitle = siteSettings.title || "L1 Cache v2.0";
 
             return (
                 <div className="min-h-screen flex flex-col bg-slate-950 text-slate-200 font-sans selection:bg-purple-500/30">
@@ -2146,9 +2277,10 @@
                         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-3 font-bold text-xl cursor-pointer group" onClick={() => setView("decks")}>
                                 <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-2 rounded-lg shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform">
-                                    <BrainCircuit size={20} className="text-white" />
+                                    {siteSettings.favicon ? <img src={siteSettings.favicon} alt="Logo" className="w-5 h-5 object-contain" /> : <BrainCircuit size={20} className="text-white" />}
                                 </div>
-                                <span className="text-white tracking-tight">L1 <span className="text-blue-500">Cache</span> <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top border border-blue-500/30">v2.0</span></span>
+                                <span className="text-white tracking-tight hidden sm:block max-w-[200px] truncate">{displayTitle}</span>
+                                <span className="text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-400 align-top border border-blue-500/30">Admin Sync</span>
                             </div>
                             <div className="flex items-center gap-2 md:gap-4 overflow-x-auto custom-scrollbar">
                                 <button onClick={() => setView("quizzes")} className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${view === 'quizzes' || view === 'quiz_session' ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-slate-900 text-slate-400 hover:text-purple-400 border-slate-800 hover:bg-slate-800'}`}><ListTodo size={14} /> Simulados</button>
@@ -2197,7 +2329,7 @@
                         {view === "leaderboard" && <LeaderboardView isAdmin={isAdmin} />}
                         
                         {/* VIEW: ADMIN */}
-                        {view === "admin" && isAdmin && <AdminPanel cards={cards} quizzes={quizzes} onExit={() => setView("decks")} />}
+                        {view === "admin" && isAdmin && <AdminPanel cards={cards} quizzes={quizzes} onExit={() => setView("decks")} siteSettings={siteSettings} />}
                     </main>
                 </div>
             );
