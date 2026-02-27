@@ -68,6 +68,10 @@
         .prose pre code { background: transparent; color: #e2e8f0; padding: 0; border: none; }
         .prose { text-align: center; max-width: 100%; }
         
+        /* Nova classe para alinhar o texto do Sobre à esquerda, diferente dos flashcards */
+        .prose-left { text-align: left; }
+        .prose-left ul { display: block; }
+
         .glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         
@@ -97,7 +101,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, query, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, BrainCircuit, Sliders, Timer, TerminalSquare, ListTodo, CheckCircle, Circle, HelpCircle, Award, Hash, Globe, AppWindow, Image as ImageIcon } from "https://esm.sh/lucide-react@0.344.0?bundle";
+        import { Cpu, Zap, LogOut, Plus, Trash2, Pencil, Check, X, Folder, Lock, Trophy, Bold, Italic, Code, List, ArrowLeft, Eye, Filter, Save, RotateCcw, Volume2, Keyboard, Activity, Calendar, Settings, PlayCircle, Undo2, Search, ChevronDown, ChevronRight, BookOpen, Layers, Repeat, GraduationCap, AlertCircle, Flame, Target, TrendingUp, Clock, Tag, Network, ListChecks, CheckSquare, BrainCircuit, Sliders, Timer, TerminalSquare, ListTodo, CheckCircle, Circle, HelpCircle, Award, Hash, Globe, AppWindow, Image as ImageIcon, Info } from "https://esm.sh/lucide-react@0.344.0?bundle";
 
         const firebaseConfig = {
             apiKey: "AIzaSyClIIJkYOmAvEKPtXvG-SIi9SzxQpaBN9s",
@@ -484,7 +488,7 @@
             );
         };
 
-        const RichTextEditor = ({ value, onChange }) => {
+        const RichTextEditor = ({ value, onChange, minHeight = "h-40" }) => {
             const editorRef = React.useRef(null);
             React.useEffect(() => { if (editorRef.current && editorRef.current.innerHTML !== value) editorRef.current.innerHTML = value || ''; }, [value]);
             const execCmd = (cmd) => { document.execCommand(cmd, false, null); };
@@ -498,15 +502,15 @@
             };
 
             return (
-                <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col h-40 focus-within:border-blue-500 transition-colors">
-                    <div className="bg-slate-800 p-2 flex gap-1 border-b border-slate-700 flex-wrap">
+                <div className={`bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col ${minHeight} focus-within:border-blue-500 transition-colors`}>
+                    <div className="bg-slate-800 p-2 flex gap-1 border-b border-slate-700 flex-wrap shrink-0">
                         <button type="button" onClick={() => execCmd('bold')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Negrito"><Bold size={16}/></button>
                         <button type="button" onClick={() => execCmd('italic')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Itálico"><Italic size={16}/></button>
                         <button type="button" onClick={() => execCmd('insertUnorderedList')} className="p-1.5 hover:bg-slate-700 rounded text-slate-300" title="Lista"><List size={16}/></button>
                         <button type="button" onClick={() => execBlock('pre')} className="p-1.5 hover:bg-slate-700 rounded text-purple-400" title="Inserir Código (Bloco)"><Code size={16}/></button>
                     </div>
                     {/* Evento onPaste adicionado aqui na div editável */}
-                    <div ref={editorRef} className="flex-1 p-4 text-white focus:outline-none overflow-y-auto custom-scrollbar prose text-sm" contentEditable onInput={(e) => onChange(e.currentTarget.innerHTML)} onPaste={handlePaste}></div>
+                    <div ref={editorRef} className="flex-1 p-4 text-white focus:outline-none overflow-y-auto custom-scrollbar prose text-sm prose-left" contentEditable onInput={(e) => onChange(e.currentTarget.innerHTML)} onPaste={handlePaste}></div>
                 </div>
             );
         };
@@ -975,7 +979,6 @@
                 } catch (err) { alert("Erro: " + err.message); } finally { setLoading(false); }
             };
             
-            // Ajuste no fallback do título para respeitar o solicitado (Nosso Site)
             const displayTitle = siteSettings?.title || "Nosso Site";
 
             return (
@@ -1149,7 +1152,101 @@
         };
 
         // ============================================================================
-        // ADMIN PANEL - COM NOVA ABA DE CONFIGURAÇÕES DO SITE
+        // ABOUT VIEW - PÁGINA SOBRE O SITE / EMENTAS / DIRETRIZES
+        // ============================================================================
+        const AboutView = ({ content, isAdmin, onSave }) => {
+            const [isEditing, setIsEditing] = React.useState(false);
+            const [editContent, setEditContent] = React.useState(content);
+            const [isSaving, setIsSaving] = React.useState(false);
+
+            React.useEffect(() => {
+                setEditContent(content);
+            }, [content]);
+
+            const handleSave = async () => {
+                setIsSaving(true);
+                await onSave(editContent);
+                setIsSaving(false);
+                setIsEditing(false);
+            };
+
+            const handleCancel = () => {
+                setEditContent(content);
+                setIsEditing(false);
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto animate-fade-in pb-12">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                                <Info className="text-blue-500" size={32} /> 
+                                Sobre & Diretrizes
+                            </h2>
+                            <p className="text-slate-400 mt-2">Avisos, ementas da faculdade, regras do algoritmo e orientações gerais do site.</p>
+                        </div>
+                        {isAdmin && !isEditing && (
+                            <button 
+                                onClick={() => setIsEditing(true)} 
+                                className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-slate-700"
+                            >
+                                <Pencil size={16} /> Editar Conteúdo
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="glass p-6 md:p-10 rounded-3xl border border-slate-700/50 shadow-2xl relative">
+                        {isEditing ? (
+                            <div className="flex flex-col gap-4 animate-fade-in">
+                                <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-lg flex items-center gap-2 text-sm text-blue-300">
+                                    <Info size={16} /> Você está editando o conteúdo público visível para todos os alunos.
+                                </div>
+                                <RichTextEditor value={editContent} onChange={setEditContent} minHeight="h-[500px]" />
+                                <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
+                                    <button 
+                                        onClick={handleCancel} 
+                                        disabled={isSaving}
+                                        className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        onClick={handleSave} 
+                                        disabled={isSaving}
+                                        className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-8 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-900/20"
+                                    >
+                                        {isSaving ? <RotateCcw size={18} className="animate-spin" /> : <Save size={18} />} 
+                                        Publicar Alterações
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in">
+                                {content && content.trim() !== '' ? (
+                                    <div 
+                                        className="prose prose-invert prose-lg text-slate-300 max-w-none prose-left prose-a:text-blue-400 hover:prose-a:text-blue-300" 
+                                        dangerouslySetInnerHTML={{ __html: content }}
+                                    />
+                                ) : (
+                                    <div className="text-center py-20 flex flex-col items-center justify-center">
+                                        <Info size={48} className="text-slate-700 mb-4" />
+                                        <h3 className="text-xl font-bold text-slate-300 mb-2">Nenhum conteúdo adicionado ainda.</h3>
+                                        {isAdmin ? (
+                                            <p className="text-slate-500">Clique no botão "Editar Conteúdo" no topo para preencher as informações.</p>
+                                        ) : (
+                                            <p className="text-slate-500">O administrador do sistema ainda não disponibilizou informações nesta página.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================================
+        // ADMIN PANEL
         // ============================================================================
         const AdminPanel = ({ cards, quizzes, onExit, siteSettings }) => {
             const [adminTab, setAdminTab] = React.useState('flashcards');
@@ -1416,7 +1513,6 @@
                 setIsSavingSettings(true);
                 try {
                     await setDoc(doc(db, "site_config", "global"), settingsForm, { merge: true });
-                    // Provide a visual success indication
                     setTimeout(() => setIsSavingSettings(false), 500);
                 } catch (err) {
                     alert("Erro ao salvar configurações do site: " + err.message);
@@ -2007,8 +2103,9 @@
             const [reviews, setReviews] = React.useState({});
             const [userStats, setUserStats] = React.useState(null);
             
-            // --- NOVO ESTADO: CONFIGURAÇÕES GLOBAIS DO SITE ---
+            // --- NOVO ESTADO: CONFIGURAÇÕES GLOBAIS E SOBRE ---
             const [siteSettings, setSiteSettings] = React.useState({ title: '', favicon: '' });
+            const [aboutContent, setAboutContent] = React.useState("");
             
             const [studyQueue, setStudyQueue] = React.useState([]);
             const [quizQueue, setQuizQueue] = React.useState([]);
@@ -2033,10 +2130,11 @@
                 return () => unsubAuth();
             }, []);
 
-            // --- NOVO useEffect: BUSCAR CONFIGURAÇÕES GLOBAIS DA COLEÇÃO ---
+            // --- BUSCAR CONFIGURAÇÕES GLOBAIS E SOBRE DA COLEÇÃO ---
             React.useEffect(() => {
                 if (!user) return; // Evita erro de permissão (Missing permissions) antes do login
 
+                // Configurações Globais (Título e Ícone)
                 const unsubSettings = onSnapshot(doc(db, "site_config", "global"), (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -2064,7 +2162,16 @@
                     }
                 }, (error) => console.error("Erro site_config onSnapshot:", error));
 
-                return () => unsubSettings();
+                // Conteúdo da página Sobre
+                const unsubAbout = onSnapshot(doc(db, "site_config", "about"), (docSnap) => {
+                    if (docSnap.exists()) {
+                        setAboutContent(docSnap.data().content || "");
+                    } else {
+                        setAboutContent("");
+                    }
+                }, (error) => console.error("Erro about config onSnapshot:", error));
+
+                return () => { unsubSettings(); unsubAbout(); };
             }, [user]);
 
             React.useEffect(() => {
@@ -2244,6 +2351,13 @@
                 setView("quiz_session");
             };
 
+            const handleSaveAboutContent = async (newContent) => {
+                try {
+                    await setDoc(doc(db, "site_config", "about"), { content: newContent }, { merge: true });
+                } catch (err) {
+                    alert("Erro ao salvar a página Sobre: " + err.message);
+                }
+            };
 
             if (view === "loading") {
                 return (
@@ -2266,7 +2380,6 @@
             if(user) Object.values(structure).forEach(cat => { totalDue += (cat.stats.n + cat.stats.l + cat.stats.r); });
             const allTags = [...new Set(cards.flatMap(c => c.tags || []))].sort();
             
-            // Variável pro UI limpo e coerente na navbar
             const displayTitle = siteSettings.title || "Nosso Site";
 
             return (
@@ -2283,6 +2396,10 @@
                             <div className="flex items-center gap-2 md:gap-4 overflow-x-auto custom-scrollbar">
                                 <button onClick={() => setView("quizzes")} className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${view === 'quizzes' || view === 'quiz_session' ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-slate-900 text-slate-400 hover:text-purple-400 border-slate-800 hover:bg-slate-800'}`}><ListTodo size={14} /> Simulados</button>
                                 {user && <button onClick={() => setView("leaderboard")} className={`hidden md:flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${view === 'leaderboard' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50' : 'text-slate-400 bg-slate-900 border-slate-800 hover:text-yellow-400 hover:bg-slate-800'}`}><Trophy size={14} /> Ranking Diário</button>}
+                                
+                                {/* NOVO BOTÃO DA ABA SOBRE */}
+                                <button onClick={() => setView("about")} className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${view === 'about' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'text-slate-400 bg-slate-900 border-slate-800 hover:text-blue-400 hover:bg-slate-800'}`}><Info size={14} /> Sobre</button>
+
                                 {isAdmin && <button onClick={() => setView("admin")} className="text-amber-500 hover:text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 transition-all flex items-center gap-1.5 text-sm"><Lock size={14} /> Admin</button>}
                                 {user && <button onClick={() => setSettingsOpen(true)} className="text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-slate-800" title="Configurações (Engine)"><Settings size={20}/></button>}
                                 {user ? <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-red-400 transition-colors p-2" title="Sair"><LogOut size={20}/></button> : null}
@@ -2326,6 +2443,9 @@
                         {/* VIEW: LEADERBOARD */}
                         {view === "leaderboard" && <LeaderboardView isAdmin={isAdmin} />}
                         
+                        {/* VIEW: SOBRE */}
+                        {view === "about" && <AboutView content={aboutContent} isAdmin={isAdmin} onSave={handleSaveAboutContent} />}
+
                         {/* VIEW: ADMIN */}
                         {view === "admin" && isAdmin && <AdminPanel cards={cards} quizzes={quizzes} onExit={() => setView("decks")} siteSettings={siteSettings} />}
                     </main>
